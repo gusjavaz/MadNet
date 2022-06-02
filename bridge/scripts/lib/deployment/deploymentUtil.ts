@@ -1,8 +1,28 @@
 import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
-import { BytesLike } from "ethers";
-import { Artifacts, RunTaskFunction } from "hardhat/types";
-import { DEFAULT_CONFIG_OUTPUT_DIR, INITIALIZER } from "../constants";
+import { BigNumber, BytesLike, ContractFactory } from "ethers";
+import {
+  Artifacts,
+  HardhatRuntimeEnvironment,
+  RunTaskFunction,
+} from "hardhat/types";
+import {
+  AliceNetFactory,
+  AliceNetFactory__factory,
+} from "../../../typechain-types";
+import {
+  DEFAULT_CONFIG_OUTPUT_DIR,
+  DEPLOY_CREATE,
+  DEPLOY_PROXY,
+  DEPLOY_STATIC,
+  DEPLOY_TEMPLATE,
+  INITIALIZER,
+  ONLY_PROXY,
+  STATIC_DEPLOYMENT,
+  UPGRADEABLE_DEPLOYMENT,
+  UPGRADE_PROXY,
+} from "../constants";
 import { readDeploymentArgs } from "./deploymentConfigUtil";
+import { ProxyData } from "./factoryStateUtil";
 
 type Ethers = typeof import("../../../node_modules/ethers/lib/ethers") &
   HardhatEthersHelpers;
@@ -32,6 +52,7 @@ export type DeployArgs = {
   initCallData?: string;
   constructorArgs?: any;
   outputFolder?: string;
+  type?: "upgradeable" | "static" | undefined;
 };
 
 export type Args = {
@@ -109,6 +130,240 @@ export async function getDeployUpgradeableProxyArgs(
     constructorArgs: constructorArgs,
     outputFolder: outputFolder,
   };
+}
+
+export async function getDeployStaticMultiCallArgs(
+  deployArgs: DeployArgs,
+  hre: HardhatRuntimeEnvironment,
+  factoryBase: AliceNetFactory__factory,
+  factory: AliceNetFactory,
+  txCount: number
+) {
+  const network = hre.network.name;
+  if (network === "hardhat") {
+    // hardhat is not being able to estimate correctly the tx gas due to the massive bytes array
+    // being sent as input to the function (the contract bytecode), so we need to increase the block
+    // gas limit temporally in order to deploy the template
+    await hre.network.provider.send("evm_setBlockGasLimit", [
+      "0x3000000000000000",
+    ]);
+  }
+  const logicContract: ContractFactory = await hre.ethers.getContractFactory(
+    deployArgs.contractName
+  );
+  const constructorArgs =
+    deployArgs.constructorArgs === undefined ? [] : deployArgs.constructorArgs;
+  const deployTxReq = logicContract.getDeployTransaction(...constructorArgs);
+
+  const logicFactory = await hre.ethers.getContractFactory(
+    deployArgs.contractName
+  );
+  const initArgs =
+    deployArgs.initCallData === undefined
+      ? []
+      : deployArgs.initCallData.replace(/\s+/g, "").split(",");
+  const fullname = (await getFullyQualifiedName(
+    deployArgs.contractName,
+    hre.artifacts
+  )) as string;
+  const isInitable = await isInitializable(fullname, hre.artifacts);
+  const initCallData = isInitable
+    ? logicFactory.interface.encodeFunctionData(INITIALIZER, initArgs)
+    : "0x";
+  const salt = await getBytes32Salt(
+    deployArgs.contractName,
+    hre.artifacts,
+    hre.ethers
+  );
+  // const txCount = await hre.ethers.provider.getTransactionCount(
+  //   factory.address
+  // );
+  const templateAddress = hre.ethers.utils.getContractAddress({
+    from: factory.address,
+    nonce: txCount,
+  });
+  const deployTemplate: BytesLike = factoryBase.interface.encodeFunctionData(
+    DEPLOY_TEMPLATE,
+    [deployTxReq.data]
+  );
+  const deployStatic: BytesLike = factoryBase.interface.encodeFunctionData(
+    DEPLOY_STATIC,
+    [salt, initCallData]
+  );
+  return [deployTemplate, deployStatic];
+}
+
+export async function getDeployUpgradeableMultiCallArgs(
+  deployArgs: DeployArgs,
+  hre: HardhatRuntimeEnvironment,
+  factoryBase: AliceNetFactory__factory,
+  factory: AliceNetFactory,
+  txCount: number
+) {
+  const network = hre.network.name;
+  const logicFactory = await hre.ethers.getContractFactory(
+    deployArgs.contractName
+  );
+  const initArgs =
+    deployArgs.initCallData === undefined
+      ? []
+      : deployArgs.initCallData.replace(/\s+/g, "").split(",");
+  const fullname = (await getFullyQualifiedName(
+    deployArgs.contractName,
+    hre.artifacts
+  )) as string;
+  const isInitable = await isInitializable(fullname, hre.artifacts);
+  const initCallData = isInitable
+    ? logicFactory.interface.encodeFunctionData(INITIALIZER, initArgs)
+    : "0x";
+  // factory interface pointed to deployed factory contract
+  // get the 32byte salt from logic contract file
+  const salt: BytesLike = await getBytes32Salt(
+    deployArgs.contractName,
+    hre.artifacts,
+    hre.ethers
+  );
+  const logicContract: ContractFactory = await hre.ethers.getContractFactory(
+    deployArgs.contractName
+  );
+  const constructorArgs =
+    deployArgs.constructorArgs === undefined ? [] : deployArgs.constructorArgs;
+  // encode deployBcode
+  const deployTx = logicContract.getDeployTransaction(...constructorArgs);
+  if (hre.network.name === "hardhat") {
+    // hardhat is not being able to estimate correctly the tx gas due to the massive bytes array
+    // being sent as input to the function (the contract bytecode), so we need to increase the block
+    // gas limit temporally in order to deploy the template
+    await hre.network.provider.send("evm_setBlockGasLimit", [
+      "0x3000000000000000",
+    ]);
+  }
+  // const txCount = await hre.ethers.provider.getTransactionCount(
+  //   factory.address
+  // );
+  const logicAddress = hre.ethers.utils.getContractAddress({
+    from: factory.address,
+    nonce: txCount,
+  });
+  // encode deploy create
+  const deployCreate: BytesLike = factoryBase.interface.encodeFunctionData(
+    DEPLOY_CREATE,
+    [deployTx.data]
+  );
+  // encode the deployProxy function call with Salt as arg
+  const deployProxy: BytesLike = factoryBase.interface.encodeFunctionData(
+    DEPLOY_PROXY,
+    [salt]
+  );
+  // encode upgrade proxy multicall
+  const upgradeProxy: BytesLike = factoryBase.interface.encodeFunctionData(
+    UPGRADE_PROXY,
+    [salt, logicAddress, initCallData]
+  );
+  const multiCallArgs = [deployCreate, deployProxy, upgradeProxy];
+  return multiCallArgs;
+}
+
+export async function getContractsDeploymentMulticallArgs(
+  contracts: string[],
+  hre: HardhatRuntimeEnvironment,
+  factoryBase: AliceNetFactory__factory,
+  factory: AliceNetFactory,
+  txCount: number,
+  inputFolder?: string,
+  outputFolder?: string
+) {
+  let proxyData: ProxyData;
+  let multiCallArgsArray = Array();
+  let cumulativeGasUsed = BigNumber.from("0");
+  let t = Date.now();
+  console.log("Start", Date.now() - t);
+  for (let i = 0; i < contracts.length; i++) {
+    const fullyQualifiedName = contracts[i];
+    // check the contract for the @custom:deploy-type tag
+    const deployType = await getDeployType(fullyQualifiedName, hre.artifacts);
+    console.log("deployType", Date.now() - t, (t = Date.now()));
+    console.log("Processing contract", fullyQualifiedName, deployType);
+    switch (deployType) {
+      case STATIC_DEPLOYMENT: {
+        const deployArgs = await getDeployMetaArgs(
+          fullyQualifiedName,
+          factory.address,
+          hre.artifacts,
+          inputFolder,
+          outputFolder
+        );
+        console.log("deployStaticArgs", Date.now() - t, (t = Date.now()));
+        let [deployTemplate, deployStatic] = await getDeployStaticMultiCallArgs(
+          deployArgs,
+          hre,
+          factoryBase,
+          factory,
+          txCount
+        );
+        multiCallArgsArray.push(deployTemplate);
+        multiCallArgsArray.push(deployStatic);
+        txCount = txCount + 2;
+        console.log(
+          "deployStaticMulticallArgs",
+          Date.now() - t,
+          (t = Date.now())
+        );
+        break;
+      }
+      case UPGRADEABLE_DEPLOYMENT: {
+        let argsArray = Array();
+        const deployArgs = await getDeployUpgradeableProxyArgs(
+          fullyQualifiedName,
+          factory.address,
+          hre.artifacts,
+          outputFolder
+        );
+        console.log("deployUpgradeableArgs", Date.now() - t, (t = Date.now()));
+
+        let [deployCreate, deployProxy, upgradeProxy] =
+          await getDeployUpgradeableMultiCallArgs(
+            deployArgs,
+            hre,
+            factoryBase,
+            factory,
+            txCount
+          );
+        console.log(
+          "deployUpgradeableMulticallArgs",
+          Date.now() - t,
+          (t = Date.now())
+        );
+        const estimatedGas = await factory.estimateGas.multiCall(argsArray);
+        cumulativeGasUsed = cumulativeGasUsed.add(estimatedGas);
+        console.log("estimatedGas", estimatedGas);
+        multiCallArgsArray.push(deployCreate);
+        multiCallArgsArray.push(deployProxy);
+        multiCallArgsArray.push(upgradeProxy);
+        txCount = txCount + 2;
+        break;
+      }
+      case ONLY_PROXY: {
+        const name = extractName(fullyQualifiedName);
+        const salt: BytesLike = await getBytes32Salt(
+          name,
+          hre.artifacts,
+          hre.ethers
+        );
+        const factoryAddress = factory.address;
+        proxyData = await hre.run("deployProxy", {
+          factoryAddress,
+          salt,
+        });
+        cumulativeGasUsed = cumulativeGasUsed.add(proxyData.gas);
+        break;
+      }
+      default: {
+        break;
+      }
+    }
+  }
+  return multiCallArgsArray;
 }
 
 export async function isInitializable(

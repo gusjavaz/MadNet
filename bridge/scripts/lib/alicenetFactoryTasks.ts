@@ -48,6 +48,7 @@ import {
   DeployProxyMCArgs,
   extractName,
   getAllContracts,
+  getContractsDeploymentMulticallArgs,
   getDeployMetaArgs,
   getDeployType,
   getDeployUpgradeableProxyArgs,
@@ -276,6 +277,263 @@ task("deployContracts", "runs the initial deployment of all AliceNet contracts")
   });
 
 task(
+  "deployContractsInOneTransaction",
+  "runs the initial deployment of all AliceNet contracts in one single transaction through multiCall operation"
+)
+  .addOptionalParam(
+    "factoryAddress",
+    "specify if a factory is already deployed, if not specified a new factory will be deployed"
+  )
+  .addOptionalParam(
+    "inputFolder",
+    "path to location containing deploymentArgsTemplate, and deploymentList"
+  )
+  .addOptionalParam("outputFolder", "output folder path to save factory state")
+  .setAction(async (taskArgs, hre) => {
+    let cumulativeGasUsed = BigNumber.from("0");
+    await checkUserDirPath(taskArgs.outputFolder);
+    // setting listName undefined will use the default list
+    const artifacts = hre.artifacts;
+    // deploy the factory first
+    let factoryAddress = taskArgs.factoryAddress;
+    if (factoryAddress === undefined) {
+      const factoryData: FactoryData = await hre.run("deployFactory", {
+        outputFolder: taskArgs.outputFolder,
+      });
+      factoryAddress = factoryData.address;
+      cumulativeGasUsed = cumulativeGasUsed.add(factoryData.gas);
+    }
+    // get an array of all contracts in the artifacts
+    // const contracts = await getDeploymentList(taskArgs.inputFolder);
+    // let contracts = [
+    //   "contracts/AToken.sol:AToken",
+    //   "contracts/BToken.sol:BToken",
+    //   "contracts/ATokenMinter.sol:ATokenMinter",
+    //   "contracts/ATokenBurner.sol:ATokenBurner",
+    // ];
+
+    const factoryBase = await hre.ethers.getContractFactory(ALICENET_FACTORY);
+    const factory = factoryBase.attach(factoryAddress);
+    let deployArgsArray = Array<DeployArgs>();
+    let multiCallArgsArray = Array();
+    let txCount = await hre.ethers.provider.getTransactionCount(
+      factory.address
+    );
+    let contracts = [
+      "contracts/AToken.sol:AToken",
+      "contracts/ATokenBurner.sol:ATokenBurner",
+      "contracts/ATokenMinter.sol:ATokenMinter",
+      "contracts/BToken.sol:BToken",
+      "contracts/Foundation.sol:Foundation",
+      "contracts/Governance.sol:Governance",
+      "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
+      "contracts/PublicStaking.sol:PublicStaking",
+      "contracts/Snapshots.sol:Snapshots",
+      "contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
+      // "contracts/ValidatorPool.sol:ValidatorPool",
+      // "contracts/ValidatorStaking.sol:ValidatorStaking",
+      // "contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations",
+      //"contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases",
+      //"contracts/ETHDKG.sol:ETHDKG",
+    ];
+    console.log(contracts);
+    multiCallArgsArray = await getContractsDeploymentMulticallArgs(
+      contracts,
+      hre,
+      factoryBase,
+      factory,
+      txCount,
+      taskArgs.inputFolder,
+      taskArgs.outputFolder
+    );
+    console.log("multiCallArgsArray", multiCallArgsArray.length);
+    let txResponse = await factory.multiCall(multiCallArgsArray);
+    contracts = [
+      // "contracts/AToken.sol:AToken",
+      // "contracts/ATokenBurner.sol:ATokenBurner",
+      // "contracts/ATokenMinter.sol:ATokenMinter",
+      // "contracts/BToken.sol:BToken",
+      // "contracts/Foundation.sol:Foundation",
+      // "contracts/Governance.sol:Governance",
+      // "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
+      // "contracts/PublicStaking.sol:PublicStaking",
+      // "contracts/Snapshots.sol:Snapshots",
+      //"contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
+      "contracts/ValidatorPool.sol:ValidatorPool",
+      // "contracts/ValidatorStaking.sol:ValidatorStaking",
+      // "contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations",
+      //"contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases",
+      //"contracts/ETHDKG.sol:ETHDKG",
+    ];
+    console.log(contracts);
+    multiCallArgsArray = await getContractsDeploymentMulticallArgs(
+      contracts,
+      hre,
+      factoryBase,
+      factory,
+      txCount,
+      taskArgs.inputFolder,
+      taskArgs.outputFolder
+    );
+    console.log("multiCallArgsArray", multiCallArgsArray.length);
+    txResponse = await factory.multiCall(multiCallArgsArray);
+    contracts = [
+      // "contracts/AToken.sol:AToken",
+      // "contracts/ATokenBurner.sol:ATokenBurner",
+      // "contracts/ATokenMinter.sol:ATokenMinter",
+      // "contracts/BToken.sol:BToken",
+      // "contracts/Foundation.sol:Foundation",
+      // "contracts/Governance.sol:Governance",
+      // "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
+      // "contracts/PublicStaking.sol:PublicStaking",
+      // "contracts/Snapshots.sol:Snapshots",
+      //"contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
+      // "contracts/ValidatorPool.sol:ValidatorPool",
+      "contracts/ValidatorStaking.sol:ValidatorStaking",
+      "contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations",
+      //"contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases",
+      //"contracts/ETHDKG.sol:ETHDKG",
+    ];
+    console.log(contracts);
+    multiCallArgsArray = await getContractsDeploymentMulticallArgs(
+      contracts,
+      hre,
+      factoryBase,
+      factory,
+      txCount,
+      taskArgs.inputFolder,
+      taskArgs.outputFolder
+    );
+    console.log("multiCallArgsArray", multiCallArgsArray.length);
+    txResponse = await factory.multiCall(multiCallArgsArray);
+    contracts = [
+      // "contracts/AToken.sol:AToken",
+      // "contracts/ATokenBurner.sol:ATokenBurner",
+      // "contracts/ATokenMinter.sol:ATokenMinter",
+      // "contracts/BToken.sol:BToken",
+      // "contracts/Foundation.sol:Foundation",
+      // "contracts/Governance.sol:Governance",
+      // "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
+      // "contracts/PublicStaking.sol:PublicStaking",
+      // "contracts/Snapshots.sol:Snapshots",
+      // "contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
+      // "contracts/ValidatorPool.sol:ValidatorPool",
+      // "contracts/ValidatorStaking.sol:ValidatorStaking",
+      //"contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations",
+      "contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases",
+      //"contracts/ETHDKG.sol:ETHDKG",
+    ];
+    console.log(contracts);
+    multiCallArgsArray = await getContractsDeploymentMulticallArgs(
+      contracts,
+      hre,
+      factoryBase,
+      factory,
+      txCount,
+      taskArgs.inputFolder,
+      taskArgs.outputFolder
+    );
+    console.log("multiCallArgsArray", multiCallArgsArray.length);
+    txResponse = await factory.multiCall(multiCallArgsArray);
+    contracts = ["contracts/ETHDKG.sol:ETHDKG"];
+    console.log(contracts);
+    multiCallArgsArray = await getContractsDeploymentMulticallArgs(
+      contracts,
+      hre,
+      factoryBase,
+      factory,
+      txCount,
+      taskArgs.inputFolder,
+      taskArgs.outputFolder
+    );
+    // console.log("deployArgs", deployArgsArray);
+    // metaContractData = await hre.run(
+    //   "multiContractMultiCallDeployMetamorphic",
+    //   deployArgs
+    // );
+    // cumulativeGasUsed = cumulativeGasUsed.add(metaContractData.gas);
+    // proxyData = await hre.run("fullMultiCallDeployProxy", deployArgs);
+    // cumulativeGasUsed = cumulativeGasUsed.add(proxyData.gas);
+
+    /*     for (let i = 0; i < deployArgsArray.length; i++) {
+      if (deployArgsArray[i].type == "static") {
+        let [deployTemplate, deployStatic] = await getDeployStaticMultiCallArgs(
+          deployArgsArray[i],
+          hre,
+          factoryBase,
+          factory
+        );
+        multiCallArgsArray.push(deployTemplate);
+        multiCallArgsArray.push(deployStatic);
+      }
+      if (deployArgsArray[i].type == "upgradeable") {
+        console.log("Now Processing", deployArgsArray[i].contractName);
+        let [deployCreate, deployProxy, upgradeProxy] =
+          await getDeployUpgradeableMultiCallArgs(
+            deployArgsArray[i],
+            hre,
+            factoryBase,
+            factory
+          );
+        multiCallArgsArray.push(deployCreate);
+        multiCallArgsArray.push(deployProxy);
+        multiCallArgsArray.push(upgradeProxy);
+      }
+    }
+ */
+    console.log("multiCallArgsArray", multiCallArgsArray.length);
+    // txResponse = await factory.multiCall(multiCallArgsArray);
+    // const receipt = await txResponse.wait();
+    // const metaAddresses = getMultipleEventVar(
+    //   receipt,
+    //   DEPLOYED_STATIC,
+    //   CONTRACT_ADDR
+    // );
+    // const templateAddresses = getMultipleEventVar(
+    //   receipt,
+    //   DEPLOYED_TEMPLATE,
+    //   CONTRACT_ADDR
+    // );
+    // const proxyAddresses = getMultipleEventVar(
+    //   receipt,
+    //   DEPLOYED_PROXY,
+    //   CONTRACT_ADDR
+    // );
+    // for (let i = 0; i < deployArgsArray.length; i++) {
+    //   await showState(
+    //     // `Deployed Metamorphic for ${deployArgsArray[i].contractName} at: ${metaAddresses[i]}, deployment template at, ${templateAddresses[i]}, gas used: ${deployArgsArray[i].gas}`
+    //     `Deployed Metamorphic for ${deployArgsArray[i].contractName} at: ${metaAddresses[i]}, deployment template at, ${templateAddresses[i]}`
+    //   );
+    // }
+    // console.log(metaAddresses, templateAddresses, proxyAddresses);
+
+    // let txResponse: ContractTransaction;
+    // let receipt: ContractReceipt;
+    // if (estimatedMultiCallGas.lt(BigNumber.from(MULTICALL_GAS_LIMIT))) {
+    //   // send the multicall transaction with deployProxy and upgradeProxy
+    //   txResponse = await factory.multiCall(multiCallArgsArray);
+    //   receipt = await txResponse.wait();
+    //   receipt = await txResponse.wait();
+    //   const metaContractData: MetaContractData = {
+    //     metaAddress: getEventVar(receipt, DEPLOYED_STATIC, CONTRACT_ADDR),
+    //     salt,
+    //     templateName: taskArgs.contractName,
+    //     templateAddress,
+    //     factoryAddress: factory.address,
+    //     gas: receipt.gasUsed,
+    //     receipt,
+    //     initCallData,
+    //   };
+    //   await showState(
+    //     `Deployed Metamorphic for ${taskArgs.contractName} at: ${metaContractData.metaAddress}, deployment template at, ${metaContractData.templateAddress}, gas used: ${metaContractData.gas}`
+    //   );
+    //   await updateMetaList(network, metaContractData, taskArgs.outputFolder);
+    // }
+
+    console.log(`total gas used: ${cumulativeGasUsed.toString()}`);
+  });
+
+task(
   "fullMultiCallDeployProxy",
   "Multicalls deployCreate, deployProxy, and upgradeProxy, if gas cost exceeds 10 million deployUpgradeableProxy will be used"
 )
@@ -337,10 +595,12 @@ task(
     const txCount = await hre.ethers.provider.getTransactionCount(
       factory.address
     );
+    console.log("txCount", txCount);
     const logicAddress = hre.ethers.utils.getContractAddress({
       from: factory.address,
       nonce: txCount,
     });
+    console.log("logicAddress", logicAddress);
     // encode deploy create
     const deployCreate: BytesLike = factoryBase.interface.encodeFunctionData(
       DEPLOY_CREATE,
@@ -358,6 +618,7 @@ task(
     );
     // get the multi call arguements as [deployProxy, upgradeProxy]
     const multiCallArgs = [deployCreate, deployProxy, upgradeProxy];
+    console.log("multiCallArgs", multiCallArgs);
     const estimatedMultiCallGas = await factory.estimateGas.multiCall(
       multiCallArgs
     );
@@ -1104,6 +1365,45 @@ function getEventVar(
   }
   throw new Error(`failed to find event: ${eventName}`);
 }
+
+/**
+ * @description goes through the receipt from the
+ * transaction and extract multiples values for event and variable specified
+ * @param receipt tx object returned from the tran
+ * @param eventName
+ * @param varName
+ * @returns array of values
+ */
+function getMultipleEventVar(
+  receipt: ContractReceipt,
+  eventName: string,
+  varName: string
+) {
+  let result = "0x";
+  let results = Array();
+  if (receipt.events !== undefined) {
+    const events = receipt.events;
+    for (let i = 0; i < events.length; i++) {
+      // look for the event
+      if (events[i].event === eventName) {
+        if (events[i].args !== undefined) {
+          const args = events[i].args;
+          // extract the deployed mock logic contract address from the event
+          result = args !== undefined ? args[varName] : undefined;
+          if (result !== undefined) {
+            results.push(result);
+          }
+        } else {
+          throw new Error(
+            `failed to extract ${varName} from event: ${eventName}`
+          );
+        }
+      }
+    }
+  }
+  return results;
+}
+
 /**
  * @description extracts the value specified by custom:salt from the contracts artifacts
  * buildInfo

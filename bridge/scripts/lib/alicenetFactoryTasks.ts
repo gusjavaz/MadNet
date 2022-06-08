@@ -15,6 +15,7 @@ import {
   DEPLOYED_PROXY,
   DEPLOYED_RAW,
   DEPLOYED_STATIC,
+  DEPLOYED_TEMPLATE,
   DEPLOY_CREATE,
   DEPLOY_METAMORPHIC,
   DEPLOY_PROXY,
@@ -48,9 +49,11 @@ import {
   DeployProxyMCArgs,
   extractName,
   getAllContracts,
+  getBytes32Salt,
   getContractsDeploymentMulticallArgs,
   getDeployMetaArgs,
   getDeployType,
+  getDeployTypeFromDeploymentListRecord,
   getDeployUpgradeableProxyArgs,
   isInitializable,
 } from "./deployment/deploymentUtil";
@@ -79,7 +82,11 @@ task(
 task("getBytes32Salt", "gets the bytes32 version of salt from contract")
   .addParam("contractName", "test contract")
   .setAction(async (taskArgs, hre) => {
-    const salt = await getBytes32Salt(taskArgs.contractName, hre);
+    const salt = await getBytes32Salt(
+      taskArgs.contractName,
+      hre.artifacts,
+      hre.ethers
+    );
     await showState(salt);
   });
 
@@ -260,7 +267,99 @@ task("deployContracts", "runs the initial deployment of all AliceNet contracts")
         }
         case ONLY_PROXY: {
           const name = extractName(fullyQualifiedName);
-          const salt: BytesLike = await getBytes32Salt(name, hre);
+          const salt: BytesLike = await getBytes32Salt(
+            name,
+            hre.artifacts,
+            hre.ethers
+          );
+          proxyData = await hre.run("deployProxy", {
+            factoryAddress,
+            salt,
+          });
+          cumulativeGasUsed = cumulativeGasUsed.add(proxyData.gas);
+          break;
+        }
+        default: {
+          break;
+        }
+      }
+    }
+    console.log(`total gas used: ${cumulativeGasUsed.toString()}`);
+  });
+
+task(
+  "deployContracts2",
+  "runs the initial deployment of all AliceNet contracts"
+)
+  .addOptionalParam(
+    "factoryAddress",
+    "specify if a factory is already deployed, if not specified a new factory will be deployed"
+  )
+  .addOptionalParam(
+    "inputFolder",
+    "path to location containing deploymentArgsTemplate, and deploymentList"
+  )
+  .addOptionalParam("outputFolder", "output folder path to save factory state")
+  .setAction(async (taskArgs, hre) => {
+    let cumulativeGasUsed = BigNumber.from("0");
+    await checkUserDirPath(taskArgs.outputFolder);
+    // setting listName undefined will use the default list
+    const artifacts = hre.artifacts;
+    // deploy the factory first
+    let factoryAddress = taskArgs.factoryAddress;
+    if (factoryAddress === undefined) {
+      const factoryData: FactoryData = await hre.run("deployFactory", {
+        outputFolder: taskArgs.outputFolder,
+      });
+      factoryAddress = factoryData.address;
+      cumulativeGasUsed = cumulativeGasUsed.add(factoryData.gas);
+    }
+    let deployArgs: DeployArgs;
+    // get an array of all contracts in the artifacts
+    const contracts = await getDeploymentList(taskArgs.inputFolder);
+    let metaContractData: MetaContractData;
+    let proxyData: ProxyData;
+    // let contracts = ["src/tokens/periphery/validatorPool/Snapshots.sol:Snapshots"]
+    for (let i = 0; i < contracts.length; i++) {
+      const fullyQualifiedName = contracts[i];
+      // check the contract for the @custom:deploy-type tag
+      const deployType = await getDeployTypeFromDeploymentListRecord(
+        fullyQualifiedName
+      );
+      switch (deployType) {
+        case STATIC_DEPLOYMENT: {
+          deployArgs = await getDeployMetaArgs(
+            fullyQualifiedName,
+            factoryAddress,
+            artifacts,
+            taskArgs.inputFolder,
+            taskArgs.outputFolder
+          );
+          metaContractData = await hre.run(
+            "multiCallDeployMetamorphic",
+            deployArgs
+          );
+          cumulativeGasUsed = cumulativeGasUsed.add(metaContractData.gas);
+          break;
+        }
+        case UPGRADEABLE_DEPLOYMENT: {
+          deployArgs = await getDeployUpgradeableProxyArgs(
+            fullyQualifiedName,
+            factoryAddress,
+            artifacts,
+            taskArgs.outputFolder
+          );
+          proxyData = await hre.run("fullMultiCallDeployProxy", deployArgs);
+          cumulativeGasUsed = cumulativeGasUsed.add(proxyData.gas);
+          break;
+        }
+        case ONLY_PROXY: {
+          const name = extractName(fullyQualifiedName);
+          const salt: BytesLike = await getBytes32Salt(
+            name,
+            hre.artifacts,
+            hre.ethers
+          );
           proxyData = await hre.run("deployProxy", {
             factoryAddress,
             salt,
@@ -290,6 +389,7 @@ task(
   )
   .addOptionalParam("outputFolder", "output folder path to save factory state")
   .setAction(async (taskArgs, hre) => {
+    await hre.network.provider.send("evm_setAutomine", [true]);
     let cumulativeGasUsed = BigNumber.from("0");
     await checkUserDirPath(taskArgs.outputFolder);
     // setting listName undefined will use the default list
@@ -303,38 +403,22 @@ task(
       factoryAddress = factoryData.address;
       cumulativeGasUsed = cumulativeGasUsed.add(factoryData.gas);
     }
-    // get an array of all contracts in the artifacts
-    // const contracts = await getDeploymentList(taskArgs.inputFolder);
-    // let contracts = [
-    //   "contracts/AToken.sol:AToken",
-    //   "contracts/BToken.sol:BToken",
-    //   "contracts/ATokenMinter.sol:ATokenMinter",
-    //   "contracts/ATokenBurner.sol:ATokenBurner",
-    // ];
-
     const factoryBase = await hre.ethers.getContractFactory(ALICENET_FACTORY);
     const factory = factoryBase.attach(factoryAddress);
-    let deployArgsArray = Array<DeployArgs>();
-    let multiCallArgsArray = Array();
-    let txCount = await hre.ethers.provider.getTransactionCount(
-      factory.address
-    );
+    let multiCallArgsArray: any[];
+    let txCount: number;
+    txCount = await hre.ethers.provider.getTransactionCount(factory.address);
     let contracts = [
-      "contracts/AToken.sol:AToken",
-      "contracts/ATokenBurner.sol:ATokenBurner",
-      "contracts/ATokenMinter.sol:ATokenMinter",
-      "contracts/BToken.sol:BToken",
-      "contracts/Foundation.sol:Foundation",
-      "contracts/Governance.sol:Governance",
-      "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
-      "contracts/PublicStaking.sol:PublicStaking",
-      "contracts/Snapshots.sol:Snapshots",
-      "contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
-      // "contracts/ValidatorPool.sol:ValidatorPool",
-      // "contracts/ValidatorStaking.sol:ValidatorStaking",
-      // "contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations",
-      //"contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases",
-      //"contracts/ETHDKG.sol:ETHDKG",
+      "contracts/AToken.sol:AToken:deployStatic:initializableTrue:hasConstructorArgsTrue",
+      "contracts/ATokenBurner.sol:ATokenBurner:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/ATokenMinter.sol:ATokenMinter:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/BToken.sol:BToken:deployStatic:initializableFalse:hasConstructorArgsFalse",
+      "contracts/Foundation.sol:Foundation:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/Governance.sol:Governance:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/PublicStaking.sol:PublicStaking:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/Snapshots.sol:Snapshots:deployUpgradeable:initializableTrue:hasConstructorArgsTrue",
+      "contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
     ];
     console.log(contracts);
     multiCallArgsArray = await getContractsDeploymentMulticallArgs(
@@ -346,24 +430,31 @@ task(
       taskArgs.inputFolder,
       taskArgs.outputFolder
     );
-    console.log("multiCallArgsArray", multiCallArgsArray.length);
     let txResponse = await factory.multiCall(multiCallArgsArray);
+    let receipt = await txResponse.wait();
+    let metaAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_STATIC,
+      CONTRACT_ADDR
+    );
+    let templateAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_TEMPLATE,
+      CONTRACT_ADDR
+    );
+    let proxyAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_PROXY,
+      CONTRACT_ADDR
+    );
+    console.log("metaAddresses", metaAddresses);
+    console.log("templateAddresses", templateAddresses);
+    console.log("proxyAddresses", proxyAddresses);
     contracts = [
-      // "contracts/AToken.sol:AToken",
-      // "contracts/ATokenBurner.sol:ATokenBurner",
-      // "contracts/ATokenMinter.sol:ATokenMinter",
-      // "contracts/BToken.sol:BToken",
-      // "contracts/Foundation.sol:Foundation",
-      // "contracts/Governance.sol:Governance",
-      // "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
-      // "contracts/PublicStaking.sol:PublicStaking",
-      // "contracts/Snapshots.sol:Snapshots",
-      //"contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
-      "contracts/ValidatorPool.sol:ValidatorPool",
-      // "contracts/ValidatorStaking.sol:ValidatorStaking",
-      // "contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations",
-      //"contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases",
-      //"contracts/ETHDKG.sol:ETHDKG",
+      "contracts/ValidatorPool.sol:ValidatorPool:deployUpgradeable:initializableTrue:hasConstructorArgsFalse",
+      "contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/ETHDKG.sol:ETHDKG:deployUpgradeable:initializableTrue:hasConstructorArgsFalse",
     ];
     console.log(contracts);
     multiCallArgsArray = await getContractsDeploymentMulticallArgs(
@@ -375,138 +466,28 @@ task(
       taskArgs.inputFolder,
       taskArgs.outputFolder
     );
-    console.log("multiCallArgsArray", multiCallArgsArray.length);
     txResponse = await factory.multiCall(multiCallArgsArray);
-    contracts = [
-      // "contracts/AToken.sol:AToken",
-      // "contracts/ATokenBurner.sol:ATokenBurner",
-      // "contracts/ATokenMinter.sol:ATokenMinter",
-      // "contracts/BToken.sol:BToken",
-      // "contracts/Foundation.sol:Foundation",
-      // "contracts/Governance.sol:Governance",
-      // "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
-      // "contracts/PublicStaking.sol:PublicStaking",
-      // "contracts/Snapshots.sol:Snapshots",
-      //"contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
-      // "contracts/ValidatorPool.sol:ValidatorPool",
-      "contracts/ValidatorStaking.sol:ValidatorStaking",
-      "contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations",
-      //"contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases",
-      //"contracts/ETHDKG.sol:ETHDKG",
-    ];
-    console.log(contracts);
-    multiCallArgsArray = await getContractsDeploymentMulticallArgs(
-      contracts,
-      hre,
-      factoryBase,
-      factory,
-      txCount,
-      taskArgs.inputFolder,
-      taskArgs.outputFolder
+    receipt = await txResponse.wait();
+    metaAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_STATIC,
+      CONTRACT_ADDR
     );
-    console.log("multiCallArgsArray", multiCallArgsArray.length);
-    txResponse = await factory.multiCall(multiCallArgsArray);
-    contracts = [
-      // "contracts/AToken.sol:AToken",
-      // "contracts/ATokenBurner.sol:ATokenBurner",
-      // "contracts/ATokenMinter.sol:ATokenMinter",
-      // "contracts/BToken.sol:BToken",
-      // "contracts/Foundation.sol:Foundation",
-      // "contracts/Governance.sol:Governance",
-      // "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
-      // "contracts/PublicStaking.sol:PublicStaking",
-      // "contracts/Snapshots.sol:Snapshots",
-      // "contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
-      // "contracts/ValidatorPool.sol:ValidatorPool",
-      // "contracts/ValidatorStaking.sol:ValidatorStaking",
-      //"contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations",
-      "contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases",
-      //"contracts/ETHDKG.sol:ETHDKG",
-    ];
-    console.log(contracts);
-    multiCallArgsArray = await getContractsDeploymentMulticallArgs(
-      contracts,
-      hre,
-      factoryBase,
-      factory,
-      txCount,
-      taskArgs.inputFolder,
-      taskArgs.outputFolder
+    templateAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_TEMPLATE,
+      CONTRACT_ADDR
     );
-    console.log("multiCallArgsArray", multiCallArgsArray.length);
-    txResponse = await factory.multiCall(multiCallArgsArray);
-    contracts = ["contracts/ETHDKG.sol:ETHDKG"];
-    console.log(contracts);
-    multiCallArgsArray = await getContractsDeploymentMulticallArgs(
-      contracts,
-      hre,
-      factoryBase,
-      factory,
-      txCount,
-      taskArgs.inputFolder,
-      taskArgs.outputFolder
+    proxyAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_PROXY,
+      CONTRACT_ADDR
     );
-    // console.log("deployArgs", deployArgsArray);
-    // metaContractData = await hre.run(
-    //   "multiContractMultiCallDeployMetamorphic",
-    //   deployArgs
-    // );
-    // cumulativeGasUsed = cumulativeGasUsed.add(metaContractData.gas);
-    // proxyData = await hre.run("fullMultiCallDeployProxy", deployArgs);
-    // cumulativeGasUsed = cumulativeGasUsed.add(proxyData.gas);
+    console.log("metaAddresses", metaAddresses);
+    console.log("templateAddresses", templateAddresses);
+    console.log("proxyAddresses", proxyAddresses);
 
-    /*     for (let i = 0; i < deployArgsArray.length; i++) {
-      if (deployArgsArray[i].type == "static") {
-        let [deployTemplate, deployStatic] = await getDeployStaticMultiCallArgs(
-          deployArgsArray[i],
-          hre,
-          factoryBase,
-          factory
-        );
-        multiCallArgsArray.push(deployTemplate);
-        multiCallArgsArray.push(deployStatic);
-      }
-      if (deployArgsArray[i].type == "upgradeable") {
-        console.log("Now Processing", deployArgsArray[i].contractName);
-        let [deployCreate, deployProxy, upgradeProxy] =
-          await getDeployUpgradeableMultiCallArgs(
-            deployArgsArray[i],
-            hre,
-            factoryBase,
-            factory
-          );
-        multiCallArgsArray.push(deployCreate);
-        multiCallArgsArray.push(deployProxy);
-        multiCallArgsArray.push(upgradeProxy);
-      }
-    }
- */
-    console.log("multiCallArgsArray", multiCallArgsArray.length);
-    // txResponse = await factory.multiCall(multiCallArgsArray);
-    // const receipt = await txResponse.wait();
-    // const metaAddresses = getMultipleEventVar(
-    //   receipt,
-    //   DEPLOYED_STATIC,
-    //   CONTRACT_ADDR
-    // );
-    // const templateAddresses = getMultipleEventVar(
-    //   receipt,
-    //   DEPLOYED_TEMPLATE,
-    //   CONTRACT_ADDR
-    // );
-    // const proxyAddresses = getMultipleEventVar(
-    //   receipt,
-    //   DEPLOYED_PROXY,
-    //   CONTRACT_ADDR
-    // );
-    // for (let i = 0; i < deployArgsArray.length; i++) {
-    //   await showState(
-    //     // `Deployed Metamorphic for ${deployArgsArray[i].contractName} at: ${metaAddresses[i]}, deployment template at, ${templateAddresses[i]}, gas used: ${deployArgsArray[i].gas}`
-    //     `Deployed Metamorphic for ${deployArgsArray[i].contractName} at: ${metaAddresses[i]}, deployment template at, ${templateAddresses[i]}`
-    //   );
-    // }
-    // console.log(metaAddresses, templateAddresses, proxyAddresses);
-
+    //TODO: Add gas estimation
     // let txResponse: ContractTransaction;
     // let receipt: ContractReceipt;
     // if (estimatedMultiCallGas.lt(BigNumber.from(MULTICALL_GAS_LIMIT))) {
@@ -576,7 +557,11 @@ task(
       : "0x";
     // factory interface pointed to deployed factory contract
     // get the 32byte salt from logic contract file
-    const salt: BytesLike = await getBytes32Salt(taskArgs.contractName, hre);
+    const salt: BytesLike = await getBytes32Salt(
+      taskArgs.contractName,
+      hre.artifacts,
+      hre.ethers
+    );
     const logicContract: ContractFactory = await hre.ethers.getContractFactory(
       taskArgs.contractName
     );
@@ -595,12 +580,10 @@ task(
     const txCount = await hre.ethers.provider.getTransactionCount(
       factory.address
     );
-    console.log("txCount", txCount);
     const logicAddress = hre.ethers.utils.getContractAddress({
       from: factory.address,
       nonce: txCount,
     });
-    console.log("logicAddress", logicAddress);
     // encode deploy create
     const deployCreate: BytesLike = factoryBase.interface.encodeFunctionData(
       DEPLOY_CREATE,
@@ -618,7 +601,6 @@ task(
     );
     // get the multi call arguements as [deployProxy, upgradeProxy]
     const multiCallArgs = [deployCreate, deployProxy, upgradeProxy];
-    console.log("multiCallArgs", multiCallArgs);
     const estimatedMultiCallGas = await factory.estimateGas.multiCall(
       multiCallArgs
     );
@@ -761,7 +743,11 @@ task("multiCallDeployMetamorphic")
     const initCallData = isInitable
       ? logicFactory.interface.encodeFunctionData(INITIALIZER, initArgs)
       : "0x";
-    const salt = await getBytes32Salt(taskArgs.contractName, hre);
+    const salt = await getBytes32Salt(
+      taskArgs.contractName,
+      hre.artifacts,
+      hre.ethers
+    );
     const txCount = await hre.ethers.provider.getTransactionCount(
       factory.address
     );
@@ -948,7 +934,11 @@ task(
     const initCallData = isInitable
       ? logicFactory.interface.encodeFunctionData(INITIALIZER, initArgs)
       : "0x";
-    const Salt = await getBytes32Salt(taskArgs.contractName, hre);
+    const Salt = await getBytes32Salt(
+      taskArgs.contractName,
+      hre.artifacts,
+      hre.ethers
+    );
     // get a factory instance connected to the factory addr
     const factory = factoryBase.attach(taskArgs.factoryAddress);
     // TODO: Reconsider doing this, might get the wrong implementation address
@@ -1078,7 +1068,11 @@ task(UPGRADE_DEPLOYED_PROXY, "deploys a contract from the factory using create")
     const network = hre.network.name;
     const factoryBase = await hre.ethers.getContractFactory(ALICENET_FACTORY);
     // grab the salt from the logic contract
-    const Salt = await getBytes32Salt(taskArgs.contractName, hre);
+    const Salt = await getBytes32Salt(
+      taskArgs.contractName,
+      hre.artifacts,
+      hre.ethers
+    );
     // get logic contract interface
     const logicFactory = await hre.ethers.getContractFactory(
       taskArgs.contractName
@@ -1171,7 +1165,7 @@ task("multiCallDeployProxy", "deploy and upgrade proxy with multicall")
     // get the 32byte salt from logic contract file
     const salt: BytesLike =
       taskArgs.salt === undefined
-        ? await getBytes32Salt(taskArgs.contractName, hre)
+        ? await getBytes32Salt(taskArgs.contractName, hre.artifacts, hre.ethers)
         : hre.ethers.utils.formatBytes32String(taskArgs.salt);
     // encode the deployProxy function call with Salt as arg
     const deployProxy: BytesLike = factoryBase.interface.encodeFunctionData(
@@ -1249,7 +1243,7 @@ task(
     );
     const salt: string =
       taskArgs.salt === undefined
-        ? await getBytes32Salt(taskArgs.contractName, hre)
+        ? await getBytes32Salt(taskArgs.contractName, hre.artifacts, hre.ethers)
         : hre.ethers.utils.formatBytes32String(taskArgs.salt);
     const txCount = await hre.ethers.provider.getTransactionCount(
       factory.address
@@ -1433,20 +1427,20 @@ async function getSalt(
   return salt;
 }
 
-/**
- * @description converts
- * @param contractName the name of the contract to get the salt for
- * @param hre hardhat runtime environment
- * @returns the string that represents the 32Bytes version
- * of the salt specified by custom:salt
- */
-export async function getBytes32Salt(
-  contractName: string,
-  hre: HardhatRuntimeEnvironment
-) {
-  const salt: string = await getSalt(contractName, hre);
-  return hre.ethers.utils.formatBytes32String(salt);
-}
+// /**
+//  * @description converts
+//  * @param contractName the name of the contract to get the salt for
+//  * @param hre hardhat runtime environment
+//  * @returns the string that represents the 32Bytes version
+//  * of the salt specified by custom:salt
+//  */
+// export async function getBytes32Salt(
+//   contractName: string,
+//   hre: HardhatRuntimeEnvironment
+// ) {
+//   const salt: string = await getSalt(contractName, hre);
+//   return hre.ethers.utils.formatBytes32String(salt);
+// }
 
 /**
  *

@@ -1,5 +1,5 @@
 import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
-import { BigNumber, BytesLike, ContractFactory } from "ethers";
+import { BigNumber, BytesLike, ContractFactory, ethers } from "ethers";
 import {
   Artifacts,
   HardhatRuntimeEnvironment,
@@ -52,7 +52,7 @@ export type DeployArgs = {
   initCallData?: string;
   constructorArgs?: any;
   outputFolder?: string;
-  type?: "upgradeable" | "static" | undefined;
+  deploymentListRecord?: string;
 };
 
 export type Args = {
@@ -103,6 +103,48 @@ export async function getDeployMetaArgs(
   };
 }
 
+export async function getDeployMetaArgs2(
+  deploymentListRecord: string,
+  factoryAddress: string,
+  artifacts: Artifacts,
+  inputFolder?: string,
+  outputFolder?: string
+): Promise<DeployArgs> {
+  let initCallData;
+  // check if contract needs to be initialized
+  const initAble = await isInitializableFromDeploymentListRecord(
+    deploymentListRecord
+  );
+  if (initAble) {
+    const initializerArgs = await getDeploymentInitializerArgs(
+      deploymentListRecord.split(":")[0] +
+        ":" +
+        deploymentListRecord.split(":")[1],
+      inputFolder
+    );
+    initCallData = await getEncodedInitCallData(initializerArgs);
+  }
+  const hasConArgs = await hasConstructorArgsFromDeploymentListRecord(
+    deploymentListRecord
+  );
+  const constructorArgs = hasConArgs
+    ? await getDeploymentConstructorArgs(
+        deploymentListRecord.split(":")[0] +
+          ":" +
+          deploymentListRecord.split(":")[1],
+        inputFolder
+      )
+    : undefined;
+  return {
+    contractName: extractName(deploymentListRecord),
+    factoryAddress: factoryAddress,
+    initCallData: initCallData,
+    constructorArgs: constructorArgs,
+    outputFolder: outputFolder,
+    deploymentListRecord: deploymentListRecord,
+  };
+}
+
 export async function getDeployUpgradeableProxyArgs(
   fullyQualifiedName: string,
   factoryAddress: string,
@@ -129,6 +171,45 @@ export async function getDeployUpgradeableProxyArgs(
     initCallData: initCallData,
     constructorArgs: constructorArgs,
     outputFolder: outputFolder,
+  };
+}
+
+export async function getDeployUpgradeableProxyArgs2(
+  fullyQualifiedName: string,
+  factoryAddress: string,
+  artifacts: Artifacts,
+  inputFolder?: string,
+  outputFolder?: string
+): Promise<DeployArgs> {
+  let initCallData;
+  const initAble = await isInitializableFromDeploymentListRecord(
+    fullyQualifiedName
+  );
+  if (initAble) {
+    const initializerArgs = await getDeploymentInitializerArgs(
+      fullyQualifiedName,
+      inputFolder
+    );
+    initCallData = await getEncodedInitCallData(initializerArgs);
+  }
+  const hasConArgs = await hasConstructorArgsFromDeploymentListRecord(
+    fullyQualifiedName
+  );
+  const constructorArgs = hasConArgs
+    ? await getDeploymentConstructorArgs(
+        fullyQualifiedName.split(":")[0] +
+          ":" +
+          fullyQualifiedName.split(":")[1],
+        inputFolder
+      )
+    : undefined;
+  return {
+    contractName: extractName(fullyQualifiedName),
+    factoryAddress: factoryAddress,
+    initCallData: initCallData,
+    constructorArgs: constructorArgs,
+    outputFolder: outputFolder,
+    deploymentListRecord: fullyQualifiedName,
   };
 }
 
@@ -166,18 +247,14 @@ export async function getDeployStaticMultiCallArgs(
     deployArgs.contractName,
     hre.artifacts
   )) as string;
-  const isInitable = await isInitializable(fullname, hre.artifacts);
+  const isInitable = await isInitializableFromDeploymentListRecord(fullname);
   const initCallData = isInitable
     ? logicFactory.interface.encodeFunctionData(INITIALIZER, initArgs)
     : "0x";
-  const salt = await getBytes32Salt(
-    deployArgs.contractName,
-    hre.artifacts,
-    hre.ethers
+  // const dplr = deployArgs.deploymentListRecord?.toString;
+  const salt = await getSaltFromDeploymentListRecord(
+    deployArgs.deploymentListRecord!
   );
-  // const txCount = await hre.ethers.provider.getTransactionCount(
-  //   factory.address
-  // );
   const templateAddress = hre.ethers.utils.getContractAddress({
     from: factory.address,
     nonce: txCount,
@@ -212,16 +289,19 @@ export async function getDeployUpgradeableMultiCallArgs(
     deployArgs.contractName,
     hre.artifacts
   )) as string;
-  const isInitable = await isInitializable(fullname, hre.artifacts);
+  const isInitable = await isInitializableFromDeploymentListRecord(fullname);
   const initCallData = isInitable
     ? logicFactory.interface.encodeFunctionData(INITIALIZER, initArgs)
     : "0x";
   // factory interface pointed to deployed factory contract
   // get the 32byte salt from logic contract file
-  const salt: BytesLike = await getBytes32Salt(
-    deployArgs.contractName,
-    hre.artifacts,
-    hre.ethers
+  // const salt = await getBytes32Salt(
+  //   deployArgs.contractName,
+  //   hre.artifacts,
+  //   hre.ethers
+  // );
+  const salt: BytesLike = await getSaltFromDeploymentListRecord(
+    deployArgs.deploymentListRecord!
   );
   const logicContract: ContractFactory = await hre.ethers.getContractFactory(
     deployArgs.contractName
@@ -238,9 +318,6 @@ export async function getDeployUpgradeableMultiCallArgs(
       "0x3000000000000000",
     ]);
   }
-  // const txCount = await hre.ethers.provider.getTransactionCount(
-  //   factory.address
-  // );
   const logicAddress = hre.ethers.utils.getContractAddress({
     from: factory.address,
     nonce: txCount,
@@ -277,23 +354,22 @@ export async function getContractsDeploymentMulticallArgs(
   let multiCallArgsArray = Array();
   let cumulativeGasUsed = BigNumber.from("0");
   let t = Date.now();
-  console.log("Start", Date.now() - t);
   for (let i = 0; i < contracts.length; i++) {
     const fullyQualifiedName = contracts[i];
     // check the contract for the @custom:deploy-type tag
-    const deployType = await getDeployType(fullyQualifiedName, hre.artifacts);
-    console.log("deployType", Date.now() - t, (t = Date.now()));
+    const deployType = await getDeployTypeFromDeploymentListRecord(
+      fullyQualifiedName
+    );
     console.log("Processing contract", fullyQualifiedName, deployType);
     switch (deployType) {
       case STATIC_DEPLOYMENT: {
-        const deployArgs = await getDeployMetaArgs(
+        const deployArgs = await getDeployMetaArgs2(
           fullyQualifiedName,
           factory.address,
           hre.artifacts,
           inputFolder,
           outputFolder
         );
-        console.log("deployStaticArgs", Date.now() - t, (t = Date.now()));
         let [deployTemplate, deployStatic] = await getDeployStaticMultiCallArgs(
           deployArgs,
           hre,
@@ -304,23 +380,16 @@ export async function getContractsDeploymentMulticallArgs(
         multiCallArgsArray.push(deployTemplate);
         multiCallArgsArray.push(deployStatic);
         txCount = txCount + 2;
-        console.log(
-          "deployStaticMulticallArgs",
-          Date.now() - t,
-          (t = Date.now())
-        );
         break;
       }
       case UPGRADEABLE_DEPLOYMENT: {
         let argsArray = Array();
-        const deployArgs = await getDeployUpgradeableProxyArgs(
+        const deployArgs = await getDeployUpgradeableProxyArgs2(
           fullyQualifiedName,
           factory.address,
           hre.artifacts,
           outputFolder
         );
-        console.log("deployUpgradeableArgs", Date.now() - t, (t = Date.now()));
-
         let [deployCreate, deployProxy, upgradeProxy] =
           await getDeployUpgradeableMultiCallArgs(
             deployArgs,
@@ -329,14 +398,8 @@ export async function getContractsDeploymentMulticallArgs(
             factory,
             txCount
           );
-        console.log(
-          "deployUpgradeableMulticallArgs",
-          Date.now() - t,
-          (t = Date.now())
-        );
         const estimatedGas = await factory.estimateGas.multiCall(argsArray);
         cumulativeGasUsed = cumulativeGasUsed.add(estimatedGas);
-        console.log("estimatedGas", estimatedGas);
         multiCallArgsArray.push(deployCreate);
         multiCallArgsArray.push(deployProxy);
         multiCallArgsArray.push(upgradeProxy);
@@ -370,7 +433,9 @@ export async function isInitializable(
   fullyQualifiedName: string,
   artifacts: Artifacts
 ) {
-  const buildInfo: any = await artifacts.getBuildInfo(fullyQualifiedName);
+  const buildInfo: any = await artifacts.getBuildInfo(
+    fullyQualifiedName.split(":")[0] + ":" + fullyQualifiedName.split(":")[1]
+  );
   const path = extractPath(fullyQualifiedName);
   const name = extractName(fullyQualifiedName);
   const methods = buildInfo.output.contracts[path][name].abi;
@@ -382,13 +447,31 @@ export async function isInitializable(
   return false;
 }
 
+/**
+ * @description same as isInitializable but querying data from deploymentList file record and not from build-info json files (more performant)
+ * @param deploymentListRecord deploymentList contract line
+ * @returns true if contract has initialize method
+ */
+export async function isInitializableFromDeploymentListRecord(
+  deploymentListRecord: string
+) {
+  switch (deploymentListRecord.split(":")[3]) {
+    case "initializableFalse":
+      return false;
+    case "initializableTrue":
+      return true;
+  }
+}
+
 export async function hasConstructorArgs(
-  fullName: string,
+  fullyQualifiedName: string,
   artifacts: Artifacts
 ) {
-  const buildInfo: any = await artifacts.getBuildInfo(fullName);
-  const path = extractPath(fullName);
-  const name = extractName(fullName);
+  const buildInfo: any = await artifacts.getBuildInfo(
+    fullyQualifiedName.split(":")[0] + ":" + fullyQualifiedName.split(":")[1]
+  );
+  const path = extractPath(fullyQualifiedName);
+  const name = extractName(fullyQualifiedName);
   const methods = buildInfo.output.contracts[path][name].abi;
   for (const method of methods) {
     if (method.type === "constructor") {
@@ -397,6 +480,23 @@ export async function hasConstructorArgs(
   }
   return false;
 }
+
+/**
+ * @description same as hasConstructorArgs but querying from deploymentList file record and not from build-info json files (more performant)
+ * @param deploymentListRecord deploymentList contract line
+ * @returns true if contract has constructor with arguments
+ */
+export async function hasConstructorArgsFromDeploymentListRecord(
+  deploymentListRecord: string
+) {
+  switch (deploymentListRecord.split(":")[4]) {
+    case "hasConstructorArgsFalse":
+      return false;
+    case "hasConstructorArgsTrue":
+      return true;
+  }
+}
+
 /**
  * @description encodes init call data input to be used by the custom hardhat tasks
  * @param args values of the init call data as an array of strings where each string represents variable value
@@ -450,7 +550,7 @@ export async function getCustomNSTag(
 
 // return a list of constructor inputs for each contract
 export async function getDeploymentConstructorArgs(
-  fullName: string,
+  fullyQualifiedName: string,
   configDirPath?: string
 ) {
   let output: Array<string> = [];
@@ -467,9 +567,9 @@ export async function getDeploymentConstructorArgs(
     };
     if (
       deploymentArgs.constructor !== undefined &&
-      deploymentArgs.constructor[fullName] !== undefined
+      deploymentArgs.constructor[fullyQualifiedName] !== undefined
     ) {
-      output = extractArgs(deploymentArgs.constructor[fullName]);
+      output = extractArgs(deploymentArgs.constructor[fullyQualifiedName]);
     }
   } else {
     output = [];
@@ -489,7 +589,7 @@ export function extractArgs(input: Array<ArgData>) {
 
 // return a list of initializer inputs for each contract
 export async function getDeploymentInitializerArgs(
-  fullName: string,
+  fullyQualifiedName: string,
   configDirPath?: string
 ) {
   let output: Array<string> | undefined;
@@ -502,9 +602,9 @@ export async function getDeploymentInitializerArgs(
     const deploymentArgs: DeploymentArgs = deploymentConfig;
     if (
       deploymentArgs.initializer !== undefined &&
-      deploymentArgs.initializer[fullName] !== undefined
+      deploymentArgs.initializer[fullyQualifiedName] !== undefined
     ) {
-      output = extractArgs(deploymentArgs.initializer[fullName]);
+      output = extractArgs(deploymentArgs.initializer[fullyQualifiedName]);
     }
   } else {
     output = undefined;
@@ -512,8 +612,29 @@ export async function getDeploymentInitializerArgs(
   return output;
 }
 
+export function getFullQualifiedNameFromDeploymentListRecord(
+  deploymentListRecord: string
+) {
+  return (
+    deploymentListRecord.split(":")[0] +
+    ":" +
+    deploymentListRecord.split(":")[1]
+  );
+}
+
 export async function getSalt(fullName: string, artifacts: Artifacts) {
   return await getCustomNSTag(fullName, "salt", artifacts);
+}
+
+/**
+ * @description same as getSalt but querying from deploymentList file record and not from build-info json files (more performant)
+ * @param deploymentListRecord deploymentList contract line
+ * @returns the salt read from file
+ */
+export async function getSaltFromDeploymentListRecord(
+  deploymentListRecord: string
+) {
+  return ethers.utils.formatBytes32String(deploymentListRecord.split(":")[1]);
 }
 
 export async function getBytes32Salt(
@@ -525,6 +646,7 @@ export async function getBytes32Salt(
   const salt: string = await getSalt(fullName, artifacts);
   return ethers.utils.formatBytes32String(salt);
 }
+
 export async function getFullyQualifiedName(
   contractName: string,
   artifacts: Artifacts
@@ -533,11 +655,19 @@ export async function getFullyQualifiedName(
   const path = contractArtifact.sourceName;
   return path + ":" + contractName;
 }
+
+export async function getDeployTypeFromDeploymentListRecord(
+  deploymentListRecord: string
+) {
+  return deploymentListRecord.split(":")[2];
+}
+
 export async function getDeployType(fullName: string, artifacts: Artifacts) {
   return await getCustomNSTag(fullName, "deploy-type", artifacts);
 }
 
 export async function getDeployGroup(fullName: string, artifacts: Artifacts) {
+  fullName = getFullQualifiedNameFromDeploymentListRecord(fullName);
   return await getCustomNSTag(fullName, "deploy-group", artifacts);
 }
 
@@ -545,5 +675,6 @@ export async function getDeployGroupIndex(
   fullName: string,
   artifacts: Artifacts
 ) {
+  fullName = getFullQualifiedNameFromDeploymentListRecord(fullName);
   return await getCustomNSTag(fullName, "deploy-group-index", artifacts);
 }

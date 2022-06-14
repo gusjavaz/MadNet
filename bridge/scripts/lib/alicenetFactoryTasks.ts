@@ -1,3 +1,5 @@
+import toml from "@iarna/toml";
+import exec from "child_process";
 import {
   BigNumber,
   BytesLike,
@@ -8,6 +10,7 @@ import {
 import fs from "fs";
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import util from "util";
 import {
   ALICENET_FACTORY,
   CONTRACT_ADDR,
@@ -16,6 +19,9 @@ import {
   DEPLOYED_RAW,
   DEPLOYED_STATIC,
   DEPLOYED_TEMPLATE,
+  DEPLOYMENT_ARGS_TEMPLATE_FPATH,
+  DEPLOYMENT_ARG_PATH,
+  DEPLOYMENT_LIST_FPATH,
   DEPLOY_CREATE,
   DEPLOY_METAMORPHIC,
   DEPLOY_PROXY,
@@ -50,7 +56,9 @@ import {
   extractName,
   getAllContracts,
   getBytes32Salt,
-  getContractsDeploymentMulticallArgs,
+  getContractsDeploymentMulticallArgs2,
+  getDeployGroup,
+  getDeployGroupIndex,
   getDeployMetaArgs,
   getDeployType,
   getDeployTypeFromDeploymentListRecord,
@@ -202,6 +210,75 @@ task(
         `YOU MUST REPLACE THE UNDEFINED VALUES IN ${path}/deploymentArgsTemplate`
       );
     }
+  });
+
+//Generate a json file with all deployment information
+task(
+  "generateContractsDescriptor",
+  "requires deploymentList and deploymentArgsTemplate files to be already generated"
+)
+  .addOptionalParam(
+    "outputFolder",
+    "output folder path to save deployment arg template and list"
+  )
+  .setAction(async (taskArgs, hre) => {
+    await checkUserDirPath(taskArgs.outputFolder);
+    const configDirPath =
+      taskArgs.outputFolder === undefined
+        ? DEFAULT_CONFIG_OUTPUT_DIR
+        : taskArgs.outputFolder;
+    const path =
+      configDirPath === undefined
+        ? DEFAULT_CONFIG_OUTPUT_DIR + DEPLOYMENT_LIST_FPATH + ".json"
+        : configDirPath + DEPLOYMENT_LIST_FPATH + ".json";
+    const deploymentArgsPath =
+      configDirPath === undefined
+        ? DEPLOYMENT_ARG_PATH + DEPLOYMENT_ARGS_TEMPLATE_FPATH
+        : configDirPath + DEPLOYMENT_ARGS_TEMPLATE_FPATH;
+    var json = { contracts: Array<Object>() };
+    const execp = util.promisify(exec.exec);
+    const execout = await execp("find contracts -maxdepth 1 -type f");
+    const contracts = execout.stdout.split("\n");
+    const deploymentArgsFile = fs.readFileSync(deploymentArgsPath);
+    const tomlFile: any = toml.parse(deploymentArgsFile.toLocaleString());
+
+    console.log(tomlFile);
+    for (let i = 0; i < contracts.length - 1; i++) {
+      const contractName = contracts[i].split("/")[1].split(".")[0];
+      const pathName = contracts[i];
+      const contract = pathName + ":" + contractName;
+      const cArgs = tomlFile.constructor[contract];
+      const iArgs = tomlFile.initializer[contract];
+      const buildInfo = await hre.artifacts.getBuildInfo(contract);
+      const deployType = await getDeployType(contract, hre.artifacts);
+      const deployGroup = await getDeployGroup(contract, hre.artifacts);
+      const deployGroupIndex = await getDeployGroupIndex(
+        contract,
+        hre.artifacts
+      );
+      const contractOutput: any =
+        buildInfo?.output.contracts[pathName][contractName];
+      if (deployType !== undefined) {
+        var object = {
+          name: contractName,
+          fullyQualifiedName: contract,
+          deployGroup:
+            deployGroup !== undefined && deployGroup ? deployGroup : "general",
+          deployGroupIndex:
+            deployGroupIndex !== undefined && deployGroupIndex
+              ? deployGroupIndex
+              : "0",
+
+          deployType: deployType,
+          hasConstructorArgs: cArgs.length > 0 ? true : false,
+          constructorArgs: cArgs,
+          isInitializable: iArgs.length > 0 ? true : false,
+          initializerArgs: iArgs,
+        };
+        json.contracts.push(object);
+      }
+    }
+    fs.writeFileSync(path, JSON.stringify(json, null, 4));
   });
 
 task("deployContracts", "runs the initial deployment of all AliceNet contracts")
@@ -375,7 +452,7 @@ task(
     console.log(`total gas used: ${cumulativeGasUsed.toString()}`);
   });
 
-task(
+/* task(
   "deployContractsInOneTransaction",
   "runs the initial deployment of all AliceNet contracts in one single transaction through multiCall operation"
 )
@@ -458,6 +535,146 @@ task(
     ];
     console.log(contracts);
     multiCallArgsArray = await getContractsDeploymentMulticallArgs(
+      contracts,
+      hre,
+      factoryBase,
+      factory,
+      txCount,
+      taskArgs.inputFolder,
+      taskArgs.outputFolder
+    );
+    txResponse = await factory.multiCall(multiCallArgsArray);
+    receipt = await txResponse.wait();
+    metaAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_STATIC,
+      CONTRACT_ADDR
+    );
+    templateAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_TEMPLATE,
+      CONTRACT_ADDR
+    );
+    proxyAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_PROXY,
+      CONTRACT_ADDR
+    );
+    console.log("metaAddresses", metaAddresses);
+    console.log("templateAddresses", templateAddresses);
+    console.log("proxyAddresses", proxyAddresses);
+
+    //TODO: Add gas estimation
+    // let txResponse: ContractTransaction;
+    // let receipt: ContractReceipt;
+    // if (estimatedMultiCallGas.lt(BigNumber.from(MULTICALL_GAS_LIMIT))) {
+    //   // send the multicall transaction with deployProxy and upgradeProxy
+    //   txResponse = await factory.multiCall(multiCallArgsArray);
+    //   receipt = await txResponse.wait();
+    //   receipt = await txResponse.wait();
+    //   const metaContractData: MetaContractData = {
+    //     metaAddress: getEventVar(receipt, DEPLOYED_STATIC, CONTRACT_ADDR),
+    //     salt,
+    //     templateName: taskArgs.contractName,
+    //     templateAddress,
+    //     factoryAddress: factory.address,
+    //     gas: receipt.gasUsed,
+    //     receipt,
+    //     initCallData,
+    //   };
+    //   await showState(
+    //     `Deployed Metamorphic for ${taskArgs.contractName} at: ${metaContractData.metaAddress}, deployment template at, ${metaContractData.templateAddress}, gas used: ${metaContractData.gas}`
+    //   );
+    //   await updateMetaList(network, metaContractData, taskArgs.outputFolder);
+    // }
+
+    console.log(`total gas used: ${cumulativeGasUsed.toString()}`);
+  });
+ */
+task(
+  "deployContractsInOneTransaction2",
+  "runs the initial deployment of all AliceNet contracts in one single transaction through multiCall operation"
+)
+  .addOptionalParam(
+    "factoryAddress",
+    "specify if a factory is already deployed, if not specified a new factory will be deployed"
+  )
+  .addOptionalParam(
+    "inputFolder",
+    "path to location containing deploymentArgsTemplate, and deploymentList"
+  )
+  .addOptionalParam("outputFolder", "output folder path to save factory state")
+  .setAction(async (taskArgs, hre) => {
+    await hre.network.provider.send("evm_setAutomine", [true]);
+    let cumulativeGasUsed = BigNumber.from("0");
+    await checkUserDirPath(taskArgs.outputFolder);
+    const configDirPath =
+      taskArgs.outputFolder === undefined
+        ? DEFAULT_CONFIG_OUTPUT_DIR
+        : taskArgs.outputFolder;
+    const path =
+      configDirPath === undefined
+        ? DEFAULT_CONFIG_OUTPUT_DIR + DEPLOYMENT_LIST_FPATH + ".json"
+        : configDirPath + DEPLOYMENT_LIST_FPATH + ".json";
+    console.log(path);
+    const rawdata = fs.readFileSync(path);
+    let json = JSON.parse(rawdata.toLocaleString());
+    console.log(json);
+    // setting listName undefined will use the default list
+    const artifacts = hre.artifacts;
+    // deploy the factory first
+    let factoryAddress = taskArgs.factoryAddress;
+    if (factoryAddress === undefined) {
+      const factoryData: FactoryData = await hre.run("deployFactory", {
+        outputFolder: taskArgs.outputFolder,
+      });
+      factoryAddress = factoryData.address;
+      cumulativeGasUsed = cumulativeGasUsed.add(factoryData.gas);
+    }
+    const factoryBase = await hre.ethers.getContractFactory(ALICENET_FACTORY);
+    const factory = factoryBase.attach(factoryAddress);
+    let multiCallArgsArray: any[];
+    let txCount: number;
+    txCount = await hre.ethers.provider.getTransactionCount(factory.address);
+    let contracts = json.contracts;
+    console.log(contracts);
+    multiCallArgsArray = await getContractsDeploymentMulticallArgs2(
+      contracts,
+      hre,
+      factoryBase,
+      factory,
+      txCount,
+      taskArgs.inputFolder,
+      taskArgs.outputFolder
+    );
+    let txResponse = await factory.multiCall(multiCallArgsArray);
+    let receipt = await txResponse.wait();
+    let metaAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_STATIC,
+      CONTRACT_ADDR
+    );
+    let templateAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_TEMPLATE,
+      CONTRACT_ADDR
+    );
+    let proxyAddresses = getMultipleEventVar(
+      receipt,
+      DEPLOYED_PROXY,
+      CONTRACT_ADDR
+    );
+    console.log("metaAddresses", metaAddresses);
+    console.log("templateAddresses", templateAddresses);
+    console.log("proxyAddresses", proxyAddresses);
+    contracts = [
+      "contracts/ValidatorPool.sol:ValidatorPool:deployUpgradeable:initializableTrue:hasConstructorArgsFalse",
+      "contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases:deployUpgradeable:initializableFalse:hasConstructorArgsFalse",
+      "contracts/ETHDKG.sol:ETHDKG:deployUpgradeable:initializableTrue:hasConstructorArgsFalse",
+    ];
+    console.log(contracts);
+    multiCallArgsArray = await getContractsDeploymentMulticallArgs2(
       contracts,
       hre,
       factoryBase,

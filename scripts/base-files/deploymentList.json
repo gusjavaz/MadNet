@@ -1,0 +1,170 @@
+{
+    "contracts": [
+        {
+            "name": "Snapshots",
+            "fullyQualifiedName": "contracts/Snapshots.sol:Snapshots",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [
+                {
+                    "chainID_": "1337"
+                },
+                {
+                    "epochLength_": "1024"
+                }
+            ],
+            "initializerArgs": [
+                {
+                    "desperationDelay_": "10"
+                },
+                {
+                    "desperationFactor_": "40"
+                }
+            ]
+        },
+        {
+            "name": "BToken",
+            "fullyQualifiedName": "contracts/BToken.sol:BToken",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployStatic"
+        },
+        {
+            "name": "Foundation",
+            "fullyQualifiedName": "contracts/Foundation.sol:Foundation",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable"
+        },
+        {
+            "name": "ValidatorStaking",
+            "fullyQualifiedName": "contracts/ValidatorStaking.sol:ValidatorStaking",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable"
+        },
+        {
+            "name": "StakingPositionDescriptor",
+            "fullyQualifiedName": "contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable"
+        },
+        {
+            "name": "PublicStaking",
+            "fullyQualifiedName": "contracts/PublicStaking.sol:PublicStaking",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable"
+        },
+        {
+            "name": "ATokenMinter",
+            "fullyQualifiedName": "contracts/ATokenMinter.sol:ATokenMinter",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable"
+        },
+        {
+            "name": "ETHDKG",
+            "fullyQualifiedName": "contracts/ETHDKG.sol:ETHDKG",
+            "deployGroup": "ethdkg",
+            "deployGroupIndex": "2",
+            "deployType": "deployUpgradeable",
+            "initializerArgs": [
+                {
+                    "phaseLength_": "40"
+                },
+                {
+                    "confirmationLength_": "6"
+                }
+            ]
+        },
+        {
+            "name": "ValidatorPool",
+            "fullyQualifiedName": "contracts/ValidatorPool.sol:ValidatorPool",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "initializerArgs": [
+                {
+                    "stakeAmount_": "1"
+                },
+                {
+                    "maxNumValidators_": "10"
+                },
+                {
+                    "disputerReward_": "1"
+                }
+            ]
+        },
+        {
+            "name": "ATokenBurner",
+            "fullyQualifiedName": "contracts/ATokenBurner.sol:ATokenBurner",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable"
+        },
+        {
+            "name": "BridgePool",
+            "fullyQualifiedName": "contracts/BridgePool.sol:BridgePool",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployStatic",
+            "constructorArgs": [
+                {
+                    "erc20TokenContract_": "0x4426F1939966427C436c565a4532e41028c60301"
+                },
+                {
+                    "bTokenContract_": "0x3e4b55722e041c0FC55A90B6EBa50EA5d3f7c02A"
+                }
+            ],
+            "initializerArgs": [
+                {
+                    "erc20TokenContract_": "0x4426F1939966427C436c565a4532e41028c60301"
+                },
+                {
+                    "bTokenContract_": "0x3e4b55722e041c0FC55A90B6EBa50EA5d3f7c02A"
+                }
+            ]
+        },
+        {
+            "name": "AToken",
+            "fullyQualifiedName": "contracts/AToken.sol:AToken",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployStatic",
+            "constructorArgs": [
+                {
+                    "legacyToken_": "0x546f99f244b7b58b855330ae0e2bc1b30b41302f"
+                }
+            ]
+        },
+        {
+            "name": "BridgePoolFactory",
+            "fullyQualifiedName": "contracts/BridgePoolFactory.sol:BridgePoolFactory",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [
+                {
+                    "networkId_": "1337"
+                }
+            ]
+        },
+        {
+            "name": "Governance",
+            "fullyQualifiedName": "contracts/Governance.sol:Governance",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable"
+        },
+        {
+            "name": "LiquidityProviderStaking",
+            "fullyQualifiedName": "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable"
+        }
+    ]
+}

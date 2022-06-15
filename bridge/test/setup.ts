@@ -15,6 +15,7 @@ import {
   AToken,
   ATokenBurner,
   ATokenMinter,
+  BridgePoolDepositNotifier,
   BridgePoolFactory,
   BToken,
   ETHDKG,
@@ -547,22 +548,31 @@ export const getFixture = async (
     "ATokenBurner"
   )) as ATokenBurner;
 
-  // BridgePool
+  // BridgePoolFactory
   const bridgePoolFactory = (await deployUpgradeableWithFactory(
     factory,
     "BridgePoolFactory",
-    "BridgePoolFactory"
+    "BridgePoolFactory",
+    undefined,
+    [1337]
   )) as BridgePoolFactory;
 
-  //TODO: uncomment upon merging of PR-126
-  // DepositNotifier
-  // const depositNotifier = (await deployStaticWithFactory(
-  //   factory,
-  //   "DepositNotifier",
-  //   "DepositNotifier",
-  //   [0],
-  //   [0]
-  // )) as DepositNotifier;
+  //BridgePoolDepositNotifier
+  const bridgePoolDepositNotifier = (await deployUpgradeableWithFactory(
+    factory,
+    "BridgePoolDepositNotifier",
+    "BridgePoolDepositNotifier",
+    undefined,
+    [1337]
+  )) as BridgePoolDepositNotifier;
+
+  const immutableAuthErrorCodesContract = await (
+    await (await ethers.getContractFactory("ImmutableAuthErrorCodes")).deploy()
+  ).deployed();
+
+  const bridgePoolErrorCodesContract = await (
+    await (await ethers.getContractFactory("BridgePoolErrorCodes")).deploy()
+  ).deployed();
 
   await posFixtureSetup(factory, aToken, legacyToken);
 
@@ -582,6 +592,7 @@ export const getFixture = async (
     snapshots,
     ethdkg,
     bridgePoolFactory,
+    bridgePoolDepositNotifier,
     factory,
     namedSigners,
     aTokenMinter,
@@ -589,6 +600,8 @@ export const getFixture = async (
     liquidityProviderStaking,
     foundation,
     stakingPositionDescriptor,
+    bridgePoolErrorCodesContract,
+    immutableAuthErrorCodesContract,
   };
 };
 

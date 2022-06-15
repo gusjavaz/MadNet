@@ -270,7 +270,7 @@ func (mon *monitor) eventLoop(wg *sync.WaitGroup, logger *logrus.Entry, cancelCh
 		}
 		select {
 		case <-gcTimer:
-			err := mon.db.DB().RunValueLogGC(constants.BadgerDiscardRatio) 
+			err := mon.db.DB().RunValueLogGC(constants.BadgerDiscardRatio)
 			if err != nil {
 				logger.Errorf("Failed to run value log GC: %v", err)
 			}

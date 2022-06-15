@@ -1,4 +1,5 @@
 local-geth/*
+.vscode/settings.json
 
 # output files
 /madnet
@@ -25,4 +26,14 @@ local-geth/*
 
 # generated files
 scripts/generated
+localstate.swagger.json
+**/swagger-bindata/bindata.go
+**/*.pb.go
+test/mocks/*.mockgen.go
+**/*.capnp.go
+**/*.pb.gw.go
+**/*_mngen.go
+**/*_mngen_test.go
+node_modules/
+bridge/dist
 node_modules/

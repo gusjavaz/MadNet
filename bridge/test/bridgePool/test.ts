@@ -1,11 +1,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
-import {
-  BridgePool,
-  BridgePoolErrorCodes,
-  ImmutableAuthErrorCodes,
-} from "../../typechain-types";
+import { BridgePool } from "../../typechain-types";
 import { expect } from "../chai-setup";
 import {
   callFunctionAndGetReturnValues,
@@ -27,8 +23,6 @@ let firstOwner: SignerWithAddress;
 let user: SignerWithAddress;
 let user2: SignerWithAddress;
 let bridgePool: BridgePool;
-let immutableAuthErrorCodesContract: ImmutableAuthErrorCodes;
-let bridgePoolErrorCodesContract: BridgePoolErrorCodes;
 let ethsReceived = BigNumber.from(0);
 
 const bTokenFeeInETH = 10;
@@ -54,6 +48,7 @@ const encodedBurnedUTXO = ethers.utils.defaultAbiCoder.encode(
   ],
   [burnedUTXO]
 );
+const networkId = 1337;
 
 describe("Testing BridgePool Contract methods", async () => {
   beforeEach(async function () {
@@ -71,17 +66,6 @@ describe("Testing BridgePool Contract methods", async () => {
     bridgePool = (await ethers.getContractFactory("BridgePool")).attach(
       bridgePoolAddress
     );
-    const BridgePoolErrorCodesContract = await ethers.getContractFactory(
-      "BridgePoolErrorCodes"
-    );
-    bridgePoolErrorCodesContract = await BridgePoolErrorCodesContract.deploy();
-    await bridgePoolErrorCodesContract.deployed();
-    const ImmutableAuthErrorCodesContract = await ethers.getContractFactory(
-      "ImmutableAuthErrorCodes"
-    );
-    immutableAuthErrorCodesContract =
-      await ImmutableAuthErrorCodesContract.deploy();
-    await immutableAuthErrorCodesContract.deployed();
     const ethIn = ethers.utils.parseEther(bTokenFeeInETH.toString());
     // mint and approve some ERC20 tokens to deposit
     await factoryCallAny(fixture.factory, fixture.aTokenMinter, "mint", [
@@ -124,16 +108,13 @@ describe("Testing BridgePool Contract methods", async () => {
       expectedState.Balances.aToken.bridgePool += erc20Amount;
       expectedState.Balances.bToken.user -= bTokenAmount;
       expectedState.Balances.bToken.totalSupply -= bTokenAmount;
-      expectedState.Balances.eth.bridgePool += ethsReceived.toBigInt();
       const nonce = 1;
-      const networkId = 0;
       await expect(
         bridgePool
           .connect(user)
           .deposit(1, user.address, erc20Amount, bTokenAmount)
       )
-        // TODO: change to  .to.emit(fixture.depositNotifier, "Deposited") upon merging of PR-126
-        .to.emit(bridgePool, "Deposited")
+        .to.emit(fixture.bridgePoolDepositNotifier, "Deposited")
         .withArgs(
           BigNumber.from(nonce),
           fixture.aToken.address,
@@ -147,7 +128,7 @@ describe("Testing BridgePool Contract methods", async () => {
       );
     });
 
-    it("Should make a withdraw for amount specified on burned UTXO upon proof verification", async () => {
+    it("Should make a withdraw for amount specified on informed burned UTXO upon proof verification", async () => {
       // Make first a deposit to withdraw afterwards
       await bridgePool
         .connect(user)
@@ -164,12 +145,12 @@ describe("Testing BridgePool Contract methods", async () => {
       );
     });
 
-    it("Should not make a withdraw for amount specified on burned UTXO with not verified merkle proof", async () => {
+    it("Should not make a withdraw for amount specified on informed burned UTXO with not verified merkle proof", async () => {
       const wrongMerkleProof =
         "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
       expectedState = await getState(fixture, bridgePool);
       const reason = ethers.utils.parseBytes32String(
-        await bridgePoolErrorCodesContract.BRIDGEPOOL_COULD_NOT_VERIFY_PROOF_OF_BURN()
+        await fixture.bridgePoolErrorCodesContract.BRIDGEPOOL_COULD_NOT_VERIFY_PROOF_OF_BURN()
       );
       await expect(
         bridgePool.connect(user).withdraw(wrongMerkleProof, encodedBurnedUTXO)
@@ -179,7 +160,7 @@ describe("Testing BridgePool Contract methods", async () => {
       );
     });
 
-    it("Should not make a withdraw for amount specified on burned UTXO with wrong root", async () => {
+    it("Should not make a withdraw for amount specified on informed burned UTXO with wrong root", async () => {
       const wrongStateRoot =
         "0x0000000000000000000000000000000000000000000000000000000000000000";
       const encodedMockBlockClaims =
@@ -190,7 +171,7 @@ describe("Testing BridgePool Contract methods", async () => {
       );
       expectedState = await getState(fixture, bridgePool);
       const reason = ethers.utils.parseBytes32String(
-        await bridgePoolErrorCodesContract.BRIDGEPOOL_COULD_NOT_VERIFY_PROOF_OF_BURN()
+        await fixture.bridgePoolErrorCodesContract.BRIDGEPOOL_COULD_NOT_VERIFY_PROOF_OF_BURN()
       );
       await expect(
         bridgePool.connect(user).withdraw(merkleProof, encodedBurnedUTXO)
@@ -200,9 +181,9 @@ describe("Testing BridgePool Contract methods", async () => {
       );
     });
 
-    it("Should not make a withdraw to an address that is not the owner in burned UTXO", async () => {
+    it("Should not make a withdraw to an address that is not the owner in informed burned UTXO", async () => {
       const reason = ethers.utils.parseBytes32String(
-        await bridgePoolErrorCodesContract.BRIDGEPOOL_RECEIVER_IS_NOT_OWNER_ON_PROOF_OF_BURN_UTXO()
+        await fixture.bridgePoolErrorCodesContract.BRIDGEPOOL_RECEIVER_IS_NOT_OWNER_ON_PROOF_OF_BURN_UTXO()
       );
       expectedState = await getState(fixture, bridgePool);
       await expect(

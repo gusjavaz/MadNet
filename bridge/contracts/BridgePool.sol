@@ -5,21 +5,35 @@ import "contracts/utils/ImmutableAuth.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "contracts/BToken.sol";
-import "hardhat/console.sol";
 import {BridgePoolErrorCodes} from "contracts/libraries/errorCodes/BridgePoolErrorCodes.sol";
 import "contracts/libraries/parsers/MerkleProofParserLibrary.sol";
 import "contracts/libraries/MerkleProofLibrary.sol";
 import "contracts/Snapshots.sol";
 import "contracts/libraries/parsers/BClaimsParserLibrary.sol";
 import "contracts/utils/ERC20SafeTransfer.sol";
+import "contracts/BridgePoolDepositNotifier.sol";
+import "contracts/BridgePoolFactory.sol";
+import "contracts/Foundation.sol";
+import "contracts/utils/MagicEthTransfer.sol";
+import "contracts/Proxy.sol";
 
 /// @custom:salt BridgePool
 /// @custom:deploy-type deployStatic
-contract BridgePool is Initializable, ImmutableSnapshots, ERC20SafeTransfer {
-    address internal immutable _erc20TokenContract;
-    address internal immutable _bTokenContract;
+contract BridgePool is
+    Initializable,
+    ImmutableSnapshots,
+    ERC20SafeTransfer,
+    ImmutableBridgePool,
+    ImmutableBridgePoolDepositNotifier,
+    ImmutableBridgePoolFactory,
+    ImmutableBToken,
+    MagicEthTransfer
+{
     using MerkleProofParserLibrary for bytes;
     using MerkleProofLibrary for MerkleProofParserLibrary.MerkleProof;
+
+    address internal immutable _ercTokenContract;
+    address payable internal immutable _bTokenContract;
 
     struct UTXO {
         uint32 chainID;
@@ -29,17 +43,10 @@ contract BridgePool is Initializable, ImmutableSnapshots, ERC20SafeTransfer {
         bytes32 txHash;
     }
 
-    //TODO: remove and use DepositNotifier
-    event Deposited(
-        uint256 nonce,
-        address ercContract,
-        address owner,
-        uint256 number,
-        uint256 networkId
-    );
-
-    constructor(address erc20TokenContract_, address bTokenContract_) ImmutableFactory(msg.sender) {
-        _erc20TokenContract = erc20TokenContract_;
+    constructor(address erc20TokenContract_, address payable bTokenContract_)
+        ImmutableFactory(msg.sender)
+    {
+        _ercTokenContract = erc20TokenContract_;
         _bTokenContract = bTokenContract_;
     }
 
@@ -49,14 +56,19 @@ contract BridgePool is Initializable, ImmutableSnapshots, ERC20SafeTransfer {
         initializer
     {}
 
+    /// @notice Transfer tokens from sender and emit a "Deposited" event for minting correspondent tokens in sidechain
+    /// @param accountType_ The type of account
+    /// @param aliceNetAddress_ The address on the sidechain where to mint the tokens
+    /// @param ercAmount_ The amount of ERC tokens to deposit
+    /// @param bTokenAmount_ The fee for deposit in bTokens
     function deposit(
         uint8 accountType_,
         address aliceNetAddress_,
-        uint256 erc20Amount_,
+        uint256 ercAmount_,
         uint256 bTokenAmount_
     ) public {
         require(
-            ERC20(_erc20TokenContract).transferFrom(msg.sender, address(this), erc20Amount_),
+            ERC20(_ercTokenContract).transferFrom(msg.sender, address(this), ercAmount_),
             string(
                 abi.encodePacked(
                     BridgePoolErrorCodes.BRIDGEPOOL_COULD_NOT_TRANSFER_DEPOSIT_AMOUNT_FROM_SENDER
@@ -71,18 +83,22 @@ contract BridgePool is Initializable, ImmutableSnapshots, ERC20SafeTransfer {
                 )
             )
         );
-        BToken(_bTokenContract).burnTo(address(this), bTokenAmount_, 0);
-        //TODO: remove and use DepositNotifier
-        emit Deposited(accountType_, _erc20TokenContract, aliceNetAddress_, erc20Amount_, 0);
-        // Uncomment upon merging of PR-126
-        // DepositNotifier(_depositNotifierAddress()).doEmit(
-        //     _saltForBridgePool(),
-        //     _erc20TokenContract,
-        //     erc20Amount_,i
-        //     aliceNetAddress_
-        // );
+        require(BToken(_bTokenContract).destroyTokens(bTokenAmount_), "unable to burn fees");
+        //for erc20 tokenID field is 0
+        //utxoID is independent of amount
+        BridgePoolDepositNotifier(_bridgePoolDepositNotifierAddress()).doEmit(
+            BridgePoolFactory(_bridgePoolFactoryAddress()).getSaltFromERC20Address(
+                _ercTokenContract
+            ),
+            _ercTokenContract,
+            ercAmount_,
+            msg.sender
+        );
     }
 
+    /// @notice Transfer funds to sender upon a verificable proof of burn in sidechain
+    /// @param encodedMerkleProof The merkle proof
+    /// @param encodedBurnedUTXO The burned UTXO
     function withdraw(bytes memory encodedMerkleProof, bytes memory encodedBurnedUTXO) public {
         BClaimsParserLibrary.BClaims memory bClaims = Snapshots(_snapshotsAddress())
             .getBlockClaimsFromLatestSnapshot();
@@ -101,7 +117,7 @@ contract BridgePool is Initializable, ImmutableSnapshots, ERC20SafeTransfer {
             merkleProof.checkProof(bClaims.stateRoot, merkleProof.computeLeafHash()),
             string(abi.encodePacked(BridgePoolErrorCodes.BRIDGEPOOL_COULD_NOT_VERIFY_PROOF_OF_BURN))
         );
-        _safeTransferERC20(IERC20Transferable(_erc20TokenContract), msg.sender, burnedUTXO.value);
+        _safeTransferERC20(IERC20Transferable(_ercTokenContract), msg.sender, burnedUTXO.value);
     }
 
     receive() external payable {}

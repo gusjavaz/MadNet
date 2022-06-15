@@ -314,6 +314,12 @@ contract BToken is
         return (minerAmount, stakingAmount, lpStakingAmount, foundationAmount);
     }
 
+    //possibly only allow bridge pools but
+    //whats the harm in someone volunatrily giving us free money
+    function destroyTokens(uint256 numBTK_) public returns (bool) {
+        return _destroyTokens(numBTK_);
+    }
+
     // Burn the tokens during deposits without sending ether back to user as the
     // normal burn function. The ether will be distributed in the distribute
     // method.

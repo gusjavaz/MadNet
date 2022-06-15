@@ -81,8 +81,9 @@ contract BridgePool is
                 )
             )
         );
-        uint256 returnedETH = BToken(_bTokenContract).burnTo(address(this), bTokenAmount_, 0);
-        BToken(_bTokenAddress()).depositEth{value: returnedETH}(42);
+        require(BToken(_bTokenContract).destroyTokens(bTokenAmount_), "unable to burn fees");
+        //for erc20 tokenID field is 0
+        //utxoID is independent of amount
         BridgePoolDepositNotifier(_bridgePoolDepositNotifierAddress()).doEmit(
             BridgePoolFactory(_bridgePoolFactoryAddress()).getSaltFromERC20Address(
                 _ercTokenContract

@@ -10,9 +10,6 @@ bTokenContract_ = "0x3e4b55722e041c0FC55A90B6EBa50EA5d3f7c02A"
 [[constructor."contracts/BridgePoolDepositNotifier.sol:BridgePoolDepositNotifier"]]
 networkId_ = "1337"
 
-[[constructor."contracts/BridgePoolFactory.sol:BridgePoolFactory"]]
-networkId_ = "1337"
-
 [[constructor."contracts/Snapshots.sol:Snapshots"]]
 chainID_ = "1337"
 

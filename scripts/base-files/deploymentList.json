@@ -1,120 +1,13 @@
 {
     "contracts": [
         {
-            "name": "Snapshots",
-            "fullyQualifiedName": "contracts/Snapshots.sol:Snapshots",
-            "deployGroup": "general",
-            "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable",
-            "hasConstructorArgs": true,
-            "constructorArgs": [
-                {
-                    "chainID_": "1337"
-                },
-                {
-                    "epochLength_": "1024"
-                }
-            ],
-            "isInitializable": true,
-            "initializerArgs": [
-                {
-                    "desperationDelay_": "10"
-                },
-                {
-                    "desperationFactor_": "40"
-                }
-            ]
-        },
-        {
-            "name": "BToken",
-            "fullyQualifiedName": "contracts/BToken.sol:BToken",
+            "name": "AToken",
+            "fullyQualifiedName": "contracts/AToken.sol:AToken",
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployStatic",
-            "hasConstructorArgs": false,
-            "isInitializable": false
-        },
-        {
-            "name": "Foundation",
-            "fullyQualifiedName": "contracts/Foundation.sol:Foundation",
-            "deployGroup": "general",
-            "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": false
-        },
-        {
-            "name": "ValidatorStaking",
-            "fullyQualifiedName": "contracts/ValidatorStaking.sol:ValidatorStaking",
-            "deployGroup": "general",
-            "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": false
-        },
-        {
-            "name": "StakingPositionDescriptor",
-            "fullyQualifiedName": "contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
-            "deployGroup": "general",
-            "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": false
-        },
-        {
-            "name": "PublicStaking",
-            "fullyQualifiedName": "contracts/PublicStaking.sol:PublicStaking",
-            "deployGroup": "general",
-            "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": false
-        },
-        {
-            "name": "ATokenMinter",
-            "fullyQualifiedName": "contracts/ATokenMinter.sol:ATokenMinter",
-            "deployGroup": "general",
-            "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": false
-        },
-        {
-            "name": "ETHDKG",
-            "fullyQualifiedName": "contracts/ETHDKG.sol:ETHDKG",
-            "deployGroup": "ethdkg",
-            "deployGroupIndex": "2",
-            "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": true,
-            "initializerArgs": [
-                {
-                    "phaseLength_": "40"
-                },
-                {
-                    "confirmationLength_": "6"
-                }
-            ]
-        },
-        {
-            "name": "ValidatorPool",
-            "fullyQualifiedName": "contracts/ValidatorPool.sol:ValidatorPool",
-            "deployGroup": "general",
-            "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": true,
-            "initializerArgs": [
-                {
-                    "stakeAmount_": "1"
-                },
-                {
-                    "maxNumValidators_": "10"
-                },
-                {
-                    "disputerReward_": "1"
-                }
-            ]
+            "constructorArgs": ["0x546f99f244b7b58b855330ae0e2bc1b30b41302f"],
+            "initializerArgs": []
         },
         {
             "name": "ATokenBurner",
@@ -122,61 +15,35 @@
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": false
+            "constructorArgs": [],
+            "initializerArgs": []
         },
         {
-            "name": "BridgePool",
-            "fullyQualifiedName": "contracts/BridgePool.sol:BridgePool",
-            "deployGroup": "general",
-            "deployGroupIndex": "0",
-            "deployType": "deployStatic",
-            "hasConstructorArgs": true,
-            "constructorArgs": [
-                {
-                    "erc20TokenContract_": "0x4426F1939966427C436c565a4532e41028c60301"
-                },
-                {
-                    "bTokenContract_": "0x3e4b55722e041c0FC55A90B6EBa50EA5d3f7c02A"
-                }
-            ],
-            "isInitializable": true,
-            "initializerArgs": [
-                {
-                    "erc20TokenContract_": "0x4426F1939966427C436c565a4532e41028c60301"
-                },
-                {
-                    "bTokenContract_": "0x3e4b55722e041c0FC55A90B6EBa50EA5d3f7c02A"
-                }
-            ]
-        },
-        {
-            "name": "AToken",
-            "fullyQualifiedName": "contracts/AToken.sol:AToken",
-            "deployGroup": "general",
-            "deployGroupIndex": "0",
-            "deployType": "deployStatic",
-            "hasConstructorArgs": true,
-            "constructorArgs": [
-                {
-                    "legacyToken_": "0x546f99f244b7b58b855330ae0e2bc1b30b41302f"
-                }
-            ],
-            "isInitializable": false
-        },
-        {
-            "name": "BridgePoolFactory",
-            "fullyQualifiedName": "contracts/BridgePoolFactory.sol:BridgePoolFactory",
+            "name": "ATokenMinter",
+            "fullyQualifiedName": "contracts/ATokenMinter.sol:ATokenMinter",
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployUpgradeable",
-            "hasConstructorArgs": true,
-            "constructorArgs": [
-                {
-                    "networkId_": "1337"
-                }
-            ],
-            "isInitializable": false
+            "constructorArgs": [],
+            "initializerArgs": []
+        },
+        {
+            "name": "BToken",
+            "fullyQualifiedName": "contracts/BToken.sol:BToken",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployStatic",
+            "constructorArgs": [],
+            "initializerArgs": []
+        },
+        {
+            "name": "Foundation",
+            "fullyQualifiedName": "contracts/Foundation.sol:Foundation",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [],
+            "initializerArgs": []
         },
         {
             "name": "Governance",
@@ -184,8 +51,8 @@
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": false
+            "constructorArgs": [],
+            "initializerArgs": []
         },
         {
             "name": "LiquidityProviderStaking",
@@ -193,8 +60,80 @@
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployUpgradeable",
-            "hasConstructorArgs": false,
-            "isInitializable": false
+            "constructorArgs": [],
+            "initializerArgs": []
+        },
+        {
+            "name": "PublicStaking",
+            "fullyQualifiedName": "contracts/PublicStaking.sol:PublicStaking",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [],
+            "initializerArgs": []
+        },
+        {
+            "name": "Snapshots",
+            "fullyQualifiedName": "contracts/Snapshots.sol:Snapshots",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": ["1337", "1024"],
+            "initializerArgs": ["10", "40"]
+        },
+        {
+            "name": "StakingPositionDescriptor",
+            "fullyQualifiedName": "contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [],
+            "initializerArgs": []
+        },
+        {
+            "name": "ValidatorPool",
+            "fullyQualifiedName": "contracts/ValidatorPool.sol:ValidatorPool",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [],
+            "initializerArgs": ["1", "10", "1"]
+        },
+        {
+            "name": "ValidatorStaking",
+            "fullyQualifiedName": "contracts/ValidatorStaking.sol:ValidatorStaking",
+            "deployGroup": "general",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [],
+            "initializerArgs": []
+        },
+        {
+            "name": "ETHDKGAccusations",
+            "fullyQualifiedName": "contracts/libraries/ethdkg/ETHDKGAccusations.sol:ETHDKGAccusations",
+            "deployGroup": "ethdkg",
+            "deployGroupIndex": "0",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [],
+            "initializerArgs": []
+        },
+        {
+            "name": "ETHDKGPhases",
+            "fullyQualifiedName": "contracts/libraries/ethdkg/ETHDKGPhases.sol:ETHDKGPhases",
+            "deployGroup": "ethdkg",
+            "deployGroupIndex": "1",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [],
+            "initializerArgs": []
+        },
+        {
+            "name": "ETHDKG",
+            "fullyQualifiedName": "contracts/ETHDKG.sol:ETHDKG",
+            "deployGroup": "ethdkg",
+            "deployGroupIndex": "2",
+            "deployType": "deployUpgradeable",
+            "constructorArgs": [],
+            "initializerArgs": ["40", "6"]
         }
     ]
 }

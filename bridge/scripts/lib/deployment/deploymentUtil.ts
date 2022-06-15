@@ -1,3 +1,4 @@
+import toml from "@iarna/toml";
 import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
 import { BigNumber, BytesLike, ContractFactory, ethers } from "ethers";
 import {
@@ -72,7 +73,9 @@ export interface ContractDescriptor {
   deployGroup: string;
   deployGroupIndex: number;
   deployType: "deployUpgradeable" | "deployStatic";
+  hasConstructorArgs: boolean;
   constructorArgs: [{}];
+  isInitializable: boolean;
   initializerArgs: [{}];
 }
 
@@ -306,19 +309,38 @@ export async function getDeployStaticMultiCallArgs2(
   factory: AliceNetFactory,
   txCount: number
 ) {
-  console.log("contractDescriptor", contractDescriptor);
-  console.log("contractDescriptor", contractDescriptor.name);
   const logicContract: ContractFactory = await hre.ethers.getContractFactory(
     contractDescriptor.name
-  );
-  console.log("hola");
-  const deployTxReq = logicContract.getDeployTransaction(
-    ...contractDescriptor.constructorArgs
   );
   const logicFactory = await hre.ethers.getContractFactory(
     contractDescriptor.name
   );
-  const initArgs = contractDescriptor.initializerArgs;
+  if (contractDescriptor.constructorArgs !== undefined) {
+    const a = contractDescriptor.constructorArgs as toml.JsonArray;
+    a.map((a , b) => {
+      console.log("ab", a., b);
+    });
+    console.log("flat", a.toString());
+  }
+
+  const constructorArgs =
+    contractDescriptor.constructorArgs === undefined
+      ? []
+      : contractDescriptor.constructorArgs
+          .toString()
+          .replace("},{", " ,")
+          .split(" ");
+  console.log(constructorArgs);
+  const deployTxReq = logicContract.getDeployTransaction(...constructorArgs);
+
+  const initArgs =
+    contractDescriptor.initializerArgs === undefined
+      ? []
+      : contractDescriptor.initializerArgs
+          .toString()
+          .replace("},{", " ,")
+          .split(" ");
+
   const initCallData = logicFactory.interface.encodeFunctionData(
     INITIALIZER,
     initArgs

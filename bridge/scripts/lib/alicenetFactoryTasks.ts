@@ -247,7 +247,7 @@ task(
       const contractName = contracts[i].split("/")[1].split(".")[0];
       const pathName = contracts[i];
       const contract = pathName + ":" + contractName;
-      const cArgs = tomlFile.constructor[contract];
+      const cArgs: toml.JsonArray = tomlFile.constructor[contract];
       const iArgs = tomlFile.initializer[contract];
       const buildInfo = await hre.artifacts.getBuildInfo(contract);
       const deployType = await getDeployType(contract, hre.artifacts);
@@ -268,11 +268,12 @@ task(
             deployGroupIndex !== undefined && deployGroupIndex
               ? deployGroupIndex
               : "0",
-
           deployType: deployType,
-          hasConstructorArgs: cArgs.length > 0 ? true : false,
+          hasConstructorArgs:
+            cArgs !== undefined && cArgs.length > 0 ? true : false,
           constructorArgs: cArgs,
-          isInitializable: iArgs.length > 0 ? true : false,
+          isInitializable:
+            iArgs !== undefined && iArgs.length > 0 ? true : false,
           initializerArgs: iArgs,
         };
         json.contracts.push(object);

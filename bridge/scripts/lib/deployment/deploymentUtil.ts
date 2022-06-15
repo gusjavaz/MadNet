@@ -317,8 +317,8 @@ export async function getDeployStaticMultiCallArgs2(
   );
   if (contractDescriptor.constructorArgs !== undefined) {
     const a = contractDescriptor.constructorArgs as toml.JsonArray;
-    a.map((a , b) => {
-      console.log("ab", a., b);
+    a.map((a, b) => {
+      console.log("ab", a, b);
     });
     console.log("flat", a.toString());
   }

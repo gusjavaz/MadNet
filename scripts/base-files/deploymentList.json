@@ -6,6 +6,7 @@
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployUpgradeable",
+            "hasConstructorArgs": true,
             "constructorArgs": [
                 {
                     "chainID_": "1337"
@@ -14,6 +15,7 @@
                     "epochLength_": "1024"
                 }
             ],
+            "isInitializable": true,
             "initializerArgs": [
                 {
                     "desperationDelay_": "10"
@@ -28,42 +30,54 @@
             "fullyQualifiedName": "contracts/BToken.sol:BToken",
             "deployGroup": "general",
             "deployGroupIndex": "0",
-            "deployType": "deployStatic"
+            "deployType": "deployStatic",
+            "hasConstructorArgs": false,
+            "isInitializable": false
         },
         {
             "name": "Foundation",
             "fullyQualifiedName": "contracts/Foundation.sol:Foundation",
             "deployGroup": "general",
             "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable"
+            "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": false
         },
         {
             "name": "ValidatorStaking",
             "fullyQualifiedName": "contracts/ValidatorStaking.sol:ValidatorStaking",
             "deployGroup": "general",
             "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable"
+            "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": false
         },
         {
             "name": "StakingPositionDescriptor",
             "fullyQualifiedName": "contracts/StakingPositionDescriptor.sol:StakingPositionDescriptor",
             "deployGroup": "general",
             "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable"
+            "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": false
         },
         {
             "name": "PublicStaking",
             "fullyQualifiedName": "contracts/PublicStaking.sol:PublicStaking",
             "deployGroup": "general",
             "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable"
+            "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": false
         },
         {
             "name": "ATokenMinter",
             "fullyQualifiedName": "contracts/ATokenMinter.sol:ATokenMinter",
             "deployGroup": "general",
             "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable"
+            "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": false
         },
         {
             "name": "ETHDKG",
@@ -71,6 +85,8 @@
             "deployGroup": "ethdkg",
             "deployGroupIndex": "2",
             "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": true,
             "initializerArgs": [
                 {
                     "phaseLength_": "40"
@@ -86,6 +102,8 @@
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": true,
             "initializerArgs": [
                 {
                     "stakeAmount_": "1"
@@ -103,7 +121,9 @@
             "fullyQualifiedName": "contracts/ATokenBurner.sol:ATokenBurner",
             "deployGroup": "general",
             "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable"
+            "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": false
         },
         {
             "name": "BridgePool",
@@ -111,6 +131,7 @@
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployStatic",
+            "hasConstructorArgs": true,
             "constructorArgs": [
                 {
                     "erc20TokenContract_": "0x4426F1939966427C436c565a4532e41028c60301"
@@ -119,6 +140,7 @@
                     "bTokenContract_": "0x3e4b55722e041c0FC55A90B6EBa50EA5d3f7c02A"
                 }
             ],
+            "isInitializable": true,
             "initializerArgs": [
                 {
                     "erc20TokenContract_": "0x4426F1939966427C436c565a4532e41028c60301"
@@ -134,11 +156,13 @@
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployStatic",
+            "hasConstructorArgs": true,
             "constructorArgs": [
                 {
                     "legacyToken_": "0x546f99f244b7b58b855330ae0e2bc1b30b41302f"
                 }
-            ]
+            ],
+            "isInitializable": false
         },
         {
             "name": "BridgePoolFactory",
@@ -146,25 +170,31 @@
             "deployGroup": "general",
             "deployGroupIndex": "0",
             "deployType": "deployUpgradeable",
+            "hasConstructorArgs": true,
             "constructorArgs": [
                 {
                     "networkId_": "1337"
                 }
-            ]
+            ],
+            "isInitializable": false
         },
         {
             "name": "Governance",
             "fullyQualifiedName": "contracts/Governance.sol:Governance",
             "deployGroup": "general",
             "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable"
+            "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": false
         },
         {
             "name": "LiquidityProviderStaking",
             "fullyQualifiedName": "contracts/LiquidityProviderStaking.sol:LiquidityProviderStaking",
             "deployGroup": "general",
             "deployGroupIndex": "0",
-            "deployType": "deployUpgradeable"
+            "deployType": "deployUpgradeable",
+            "hasConstructorArgs": false,
+            "isInitializable": false
         }
     ]
 }

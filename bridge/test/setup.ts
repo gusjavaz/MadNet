@@ -15,7 +15,8 @@ import {
   AToken,
   ATokenBurner,
   ATokenMinter,
-  BridgePool,
+  BridgePoolDepositNotifier,
+  BridgePoolFactory,
   BToken,
   ETHDKG,
   Foundation,
@@ -66,7 +67,7 @@ export interface Fixture extends BaseTokensFixture {
   ethdkg: ETHDKG;
   stakingPositionDescriptor: StakingPositionDescriptor;
   namedSigners: SignerWithAddress[];
-  bridgePool: BridgePool;
+  bridgePoolFactory: BridgePoolFactory;
 }
 
 /**
@@ -153,7 +154,7 @@ async function getContractAddressFromDeployedStaticEvent(
   return await getContractAddressFromEventLog(tx, eventSignature, eventName);
 }
 
-async function getContractAddressFromDeployedProxyEvent(
+export async function getContractAddressFromDeployedProxyEvent(
   tx: ContractTransaction
 ): Promise<string> {
   const eventSignature = "event DeployedProxy(address contractAddr)";
@@ -313,7 +314,6 @@ export const deployFactoryAndBaseTokens = async (
   admin: SignerWithAddress
 ): Promise<BaseTokensFixture> => {
   const factory = await deployAliceNetFactory(admin);
-
   // LegacyToken
   const legacyToken = (await deployStaticWithFactory(
     factory,
@@ -357,7 +357,6 @@ export const deployAliceNetFactory = async (
     from: admin.address,
     nonce: txCount,
   });
-
   const Factory = await ethers.getContractFactory("AliceNetFactory");
   const factory = await Factory.deploy(futureFactoryAddress);
   await factory.deployed();
@@ -549,24 +548,31 @@ export const getFixture = async (
     "ATokenBurner"
   )) as ATokenBurner;
 
-  // BridgePool
-  const bridgePool = (await deployUpgradeableWithFactory(
+  // BridgePoolFactory
+  const bridgePoolFactory = (await deployUpgradeableWithFactory(
     factory,
-    "BridgePool",
-    "BridgePool",
-    [aToken.address, bToken.address],
-    [aToken.address, bToken.address]
-  )) as BridgePool;
+    "BridgePoolFactory",
+    "BridgePoolFactory",
+    undefined,
+    [1337]
+  )) as BridgePoolFactory;
 
-  //TODO: uncomment upon merging of PR-126
-  // DepositNotifier
-  // const depositNotifier = (await deployStaticWithFactory(
-  //   factory,
-  //   "DepositNotifier",
-  //   "DepositNotifier",
-  //   [0],
-  //   [0]
-  // )) as DepositNotifier;
+  //BridgePoolDepositNotifier
+  const bridgePoolDepositNotifier = (await deployUpgradeableWithFactory(
+    factory,
+    "BridgePoolDepositNotifier",
+    "BridgePoolDepositNotifier",
+    undefined,
+    [1337]
+  )) as BridgePoolDepositNotifier;
+
+  const immutableAuthErrorCodesContract = await (
+    await (await ethers.getContractFactory("ImmutableAuthErrorCodes")).deploy()
+  ).deployed();
+
+  const bridgePoolErrorCodesContract = await (
+    await (await ethers.getContractFactory("BridgePoolErrorCodes")).deploy()
+  ).deployed();
 
   await posFixtureSetup(factory, aToken, legacyToken);
 
@@ -585,7 +591,8 @@ export const getFixture = async (
     validatorPool,
     snapshots,
     ethdkg,
-    bridgePool,
+    bridgePoolFactory,
+    bridgePoolDepositNotifier,
     factory,
     namedSigners,
     aTokenMinter,
@@ -593,6 +600,8 @@ export const getFixture = async (
     liquidityProviderStaking,
     foundation,
     stakingPositionDescriptor,
+    bridgePoolErrorCodesContract,
+    immutableAuthErrorCodesContract,
   };
 };
 

@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/MadBase/MadNet/blockchain/interfaces"
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -48,19 +48,10 @@ func (s *SequentialSchedule) Initialize(typeRegistry *TypeRegistry, adminHandler
 	s.marshaller = typeRegistry
 }
 
-func (s *SequentialSchedule) Schedule(start uint64, end uint64, thing interfaces.Task) (uuid.UUID, error) {
-
-	for _, block := range s.Ranges {
-		if start < block.End && block.Start < end {
-			return nil, ErrOverlappingSchedule
-		}
-	}
-
-	id := uuid.NewRandom()
-
+func (s *SequentialSchedule) Schedule(start uint64, end uint64, thing interfaces.Task) uuid.UUID {
+	id := uuid.New()
 	s.Ranges[id.String()] = &Block{Start: start, End: end, Task: thing}
-
-	return id, nil
+	return id
 }
 
 func (s *SequentialSchedule) Purge() {
@@ -100,10 +91,10 @@ func (s *SequentialSchedule) Find(now uint64) (uuid.UUID, error) {
 
 	for taskId, block := range s.Ranges {
 		if block.Start <= now && block.End > now {
-			return uuid.Parse(taskId), nil
+			return uuid.Parse(taskId)
 		}
 	}
-	return nil, ErrNothingScheduled
+	return uuid.UUID{}, ErrNothingScheduled
 }
 
 func (s *SequentialSchedule) Retrieve(taskId uuid.UUID) (interfaces.Task, error) {

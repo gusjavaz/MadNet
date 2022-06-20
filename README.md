@@ -14,10 +14,11 @@ First, this repository needs to be cloned, and be the current working dir.
 
 <br />
 
-Then, to generate all files necessary for the project to build (run with `sudo` if your `docker` is only installed for `root`):
+Then, to generate all files necessary for the project to build:
 ```
 make generate
 ```
+This user running this command needs to have the `docker` command set up. The generated files will belong to that user. 
 The generate command above may need to be rerun after making certain changes. Check the [File generation](#file-generation)
  section for more info on this.
 
@@ -197,6 +198,13 @@ Now that AliceNet is successfully running on your machine, connect it
 with [Madnet Wallet](https://github.com/MadBase/MadNetWallet-v2).
 
 # TEST
+
+### Verbose log
+To show all the scripts logs in the console during tests you must set the env variable `ENABLE_SCRIPT_LOG` to `true`. 
+For instance to run blockchain tests you will execute
+```shell
+ENABLE_SCRIPT_LOG=true go test -v github.com/MadBase/MadNet/blockchain
+```
 
 ### Random Kill and Restart
 

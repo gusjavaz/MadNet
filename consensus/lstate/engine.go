@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/MadBase/MadNet/consensus/admin"
 	"github.com/MadBase/MadNet/consensus/db"
@@ -47,8 +46,7 @@ type Engine struct {
 
 	storage dynamics.StorageGetter
 
-	dm           *dman.DMan
-	notSafeTimer time.Time
+	dm *dman.DMan
 }
 
 // Init will initialize the Consensus Engine and all sub modules
@@ -126,9 +124,7 @@ func (ce *Engine) UpdateLocalState() (bool, error) {
 				return err
 			}
 			if !safe {
-				bh, _ := ce.database.GetCommittedBlockHeader(txn, bHeight)
-				ce.database.SetCommittedBlockHeader(txn, bh)
-				utils.DebugTrace(ce.logger, nil, "not safe")
+				utils.DebugTrace(ce.logger, nil, "Waiting snapshot completion")
 				updateLocalState = false
 			} else {
 				// if it's safe to proceed, we update ownState with the latest

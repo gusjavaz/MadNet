@@ -30,7 +30,6 @@ import (
 	"github.com/MadBase/MadNet/crypto"
 	mncrypto "github.com/MadBase/MadNet/crypto"
 	"github.com/MadBase/MadNet/dynamics"
-	"github.com/MadBase/MadNet/ipc"
 	"github.com/MadBase/MadNet/logging"
 	"github.com/MadBase/MadNet/peering"
 	"github.com/MadBase/MadNet/proto"
@@ -61,7 +60,6 @@ var tx1Signature, tx2Signature, tx3Signature []byte
 var ctx context.Context
 var app *application.Application
 var consGossipHandlers *gossip.Handlers
-var ipcServer *ipc.Server
 var peerManager *peering.PeerManager
 var consGossipClient *gossip.Client
 var consDlManager *dman.DMan
@@ -106,45 +104,30 @@ func TestMain(m *testing.M) {
 		wg:          sync.WaitGroup{},
 		isConnected: false,
 	}
-	go lrpc.Connect(ctx)
-	defer lrpc.Close()
+
+	go func() {
+		err := lrpc.Connect(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}()
+	defer func() {
+		err := lrpc.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	localStateServer := initLocalStateServer(srpc)
 	go localStateServer.Serve()
-	defer localStateServer.Close()
-
-	go ipcServer.Start()
-	defer ipcServer.Close()
-
-	go peerManager.Start()
-	defer peerManager.Close()
-
-	go consGossipClient.Start()
-	defer consGossipClient.Close()
-
-	go consDlManager.Start()
-	defer consDlManager.Close()
-
-	go localStateHandler.Start()
-	defer localStateHandler.Stop()
-
-	go consGossipHandlers.Start()
-	defer consGossipHandlers.Close()
+	defer func() {
+		err := localStateServer.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	go storage.Start()
-
-	// go statusLogger.Run()
-	// defer statusLogger.Close()
-
-	// err = mon.Start()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// defer mon.Close()
-
-	//////////////////////////////////////////////////////////////////////////////
-	//SETUP SHUTDOWN MONITORING///////////////////////////////////////////////////
-	//////////////////////////////////////////////////////////////////////////////
 
 	consSync.Start()
 
@@ -216,9 +199,6 @@ func validatorNode() {
 	consGossipHandlers = &gossip.Handlers{}
 	consGossipClient = &gossip.Client{}
 
-	// consTxPool takes old state from consensusDB, used as evidence for what was done (new blocks, consensus, voting)
-	consTxPool := &evidence.Pool{}
-
 	// link between ETH net and our internal logic, relays important ETH events (e.g. snapshot) into our system
 	consAdminHandlers := &admin.Handlers{}
 
@@ -244,15 +224,15 @@ func validatorNode() {
 
 	peerManager = initPeerManager(consGossipHandlers, consReqHandler)
 
-	ipcServer = ipc.NewServer(config.Configuration.Firewalld.SocketFile)
-
 	// Initialize the consensus engine signer
 	// if err := secp256k1Signer.SetPrivk(crypto.FromECDSA(keys.PrivateKey)); err != nil {
 	// 	panic(err)
 	// }
 
 	consDB.Init(rawConsensusDb)
-	consTxPool.Init(consDB)
+
+	// consTxPool takes old state from consensusDB, used as evidence for what was done (new blocks, consensus, voting)
+	consTxPool := evidence.NewPool(consDB)
 
 	appDepositHandler.Init()
 	if err := app.Init(consDB, rawTxPoolDb, appDepositHandler, storage); err != nil {
@@ -273,7 +253,7 @@ func validatorNode() {
 	consLSHandler.Init(consDB, consDlManager)
 	consGossipHandlers.Init(chainID, consDB, peerManager.P2PClient(), app, consLSHandler, storage)
 	consGossipClient.Init(consDB, peerManager.P2PClient(), app, storage)
-	consAdminHandlers.Init(chainID, consDB, crypto.Hasher([]byte(config.Configuration.Validator.SymmetricKey)), app, publicKey, storage, ipcServer)
+	consAdminHandlers.Init(chainID, consDB, crypto.Hasher([]byte(config.Configuration.Validator.SymmetricKey)), app, publicKey, storage)
 	consLSEngine.Init(consDB, consDlManager, app, secp256k1Signer, consAdminHandlers, publicKey, consReqClient, storage)
 
 	// Setup monitor
@@ -370,7 +350,7 @@ func getTransactionRequest(ConsumedTxHash []byte, account []byte, val uint64) (t
 	transactionData := &pb.TransactionData{
 		Tx: &pb.Tx{
 			Vin: []*pb.TXIn{
-				&pb.TXIn{
+				{
 					TXInLinker: &pb.TXInLinker{
 						TXInPreImage: &pb.TXInPreImage{
 							ChainID:        txin.TXInLinker.TXInPreImage.ChainID,
@@ -383,7 +363,7 @@ func getTransactionRequest(ConsumedTxHash []byte, account []byte, val uint64) (t
 				},
 			},
 			Vout: []*pb.TXOut{
-				&pb.TXOut{
+				{
 					Utxo: &pb.TXOut_ValueStore{
 						ValueStore: &pb.ValueStore{
 							VSPreImage: &pb.VSPreImage{
@@ -407,7 +387,10 @@ func getTransactionRequest(ConsumedTxHash []byte, account []byte, val uint64) (t
 
 func getSignerData() (*crypto.Secp256k1Signer, []byte) {
 	signer := &crypto.Secp256k1Signer{}
-	signer.SetPrivk(crypto.Hasher([]byte("secret")))
+	err := signer.SetPrivk(crypto.Hasher([]byte("secret")))
+	if err != nil {
+		panic(err)
+	}
 	pubKey, _ := signer.Pubkey()
 	return signer, pubKey
 }
@@ -417,12 +400,17 @@ func loadSettings(configFile string) {
 	bs, _ := ioutil.ReadAll(file)
 	reader := bytes.NewReader(bs)
 	viper.SetConfigType("toml")
-	viper.ReadConfig(reader)
+	err := viper.ReadConfig(reader)
+	if err != nil {
+		panic(err)
+	}
 	//StateDbPath is in configuration but StateDB on the file, hence fixing
 	viper.Set("chain.StateDbPath", viper.GetString("chain.StateDB"))
 	viper.Set("chain.MonitorDbPath", viper.GetString("chain.MonitorDB"))
-	viper.Unmarshal(&config.Configuration)
-
+	err = viper.Unmarshal(&config.Configuration)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func initDatabase(ctx context.Context, path string, inMemory bool) *badger.DB {
@@ -522,7 +510,10 @@ func insertTestUTXO(value_ uint64) ([][]byte, []byte, []byte) {
 		TxHash: utils.ForceSliceToLength([]byte(strconv.Itoa(1)), constants.HashLen),
 	}
 	utxoDep := &objs.TXOut{}
-	utxoDep.NewValueStore(vs)
+	err := utxoDep.NewValueStore(vs)
+	if err != nil {
+		fmt.Printf("could not create utxo %v \n", err)
+	}
 	tx, consumedTxHash := makeTxs(signer, vs)
 	utxoIDs, _ := tx.GeneratedUTXOID()
 	err = consDB.Update(func(txn *badger.Txn) error {
@@ -540,9 +531,21 @@ func insertTestUTXO(value_ uint64) ([][]byte, []byte, []byte) {
 
 func makeTxs(s objs.Signer, v *objs.ValueStore) (*objs.Tx, []byte) {
 	txIn, err := v.MakeTxIn()
+	if err != nil {
+		fmt.Printf("Could not make tx in %v \n", err)
+	}
 	value, err := v.Value()
+	if err != nil {
+		fmt.Printf("Could not get value %v \n", err)
+	}
 	chainID, err := txIn.ChainID()
+	if err != nil {
+		fmt.Printf("Could not get chain id %v \n", err)
+	}
 	pubkey, err := s.Pubkey()
+	if err != nil {
+		fmt.Printf("Could not get pubkey %v \n", err)
+	}
 	tx := &objs.Tx{}
 	tx.Vin = []*objs.TXIn{txIn}
 	newValueStore := &objs.ValueStore{
@@ -561,13 +564,18 @@ func makeTxs(s objs.Signer, v *objs.ValueStore) (*objs.Tx, []byte) {
 	}
 	newUTXO := &objs.TXOut{}
 	err = newUTXO.NewValueStore(newValueStore)
+	if err != nil {
+		fmt.Printf("Could not create utxo %v \n", err)
+	}
 	tx.Vout = append(tx.Vout, newUTXO)
 	tx.Fee = uint256.Zero()
 	err = tx.SetTxHash()
+	if err != nil {
+		fmt.Printf("Could not set tx hash %v \n", err)
+	}
 	err = v.Sign(tx.Vin[0], s)
 	if err != nil {
 		fmt.Printf("Could not create Txs %v \n", err)
-
 	}
 	return tx, tx.Vin[0].TXInLinker.TxHash
 }

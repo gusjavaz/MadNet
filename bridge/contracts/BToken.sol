@@ -10,6 +10,8 @@ import "contracts/libraries/math/Sigmoid.sol";
 import "contracts/utils/ImmutableAuth.sol";
 import {BTokenErrorCodes} from "contracts/libraries/errorCodes/BTokenErrorCodes.sol";
 
+// import "hardhat/console.sol";
+
 /// @custom:salt BToken
 /// @custom:deploy-type deployStatic
 contract BToken is
@@ -313,6 +315,12 @@ contract BToken is
         return (minerAmount, stakingAmount, lpStakingAmount, foundationAmount);
     }
 
+    //possibly only allow bridge pools but
+    //whats the harm in someone volunatrily giving us free money
+    // function destroyTokens(uint256 numBTK_) public returns (bool) {
+    //     return _destroyTokens(numBTK_);
+    // }
+
     // Burn the tokens during deposits without sending ether back to user as the
     // normal burn function. The ether will be distributed in the distribute
     // method.
@@ -506,4 +514,8 @@ contract BToken is
         Deposit memory d = Deposit(accountType_, account_, value_);
         return d;
     }
+
+    // function depositEth(uint8 magic_) public payable checkMagic(magic_) {
+    //     console.log("paying!", msg.value);
+    // }
 }

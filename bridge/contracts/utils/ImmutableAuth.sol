@@ -442,6 +442,62 @@ abstract contract ImmutableValidatorStaking is ImmutableFactory {
     }
 }
 
+abstract contract ImmutableBridgePoolCloneFactory is ImmutableFactory {
+    address private immutable _bridgePoolCloneFactory;
+
+    modifier onlyBridgePoolCloneFactory() {
+        require(
+            msg.sender == _bridgePoolCloneFactory,
+            string(
+                abi.encodePacked(ImmutableAuthErrorCodes.IMMUTEABLEAUTH_ONLY_BRIDGEPOOLCLONEFACTORY)
+            )
+        );
+        _;
+    }
+
+    constructor() {
+        _bridgePoolCloneFactory = getMetamorphicContractAddress(
+            0x427269646765506f6f6c436c6f6e65466163746f727900000000000000000000,
+            _factoryAddress()
+        );
+    }
+
+    function _bridgePoolCloneFactoryAddress() internal view returns (address) {
+        return _bridgePoolCloneFactory;
+    }
+
+    function _saltForBridgePoolCloneFactory() internal pure returns (bytes32) {
+        return 0x427269646765506f6f6c436c6f6e65466163746f727900000000000000000000;
+    }
+}
+
+abstract contract ImmutableCloneFactory is ImmutableFactory {
+    address private immutable _cloneFactory;
+
+    modifier onlyCloneFactory() {
+        require(
+            msg.sender == _cloneFactory,
+            string(abi.encodePacked(ImmutableAuthErrorCodes.IMMUTEABLEAUTH_ONLY_CLONEFACTORY))
+        );
+        _;
+    }
+
+    constructor() {
+        _cloneFactory = getMetamorphicContractAddress(
+            0x436c6f6e65466163746f72790000000000000000000000000000000000000000,
+            _factoryAddress()
+        );
+    }
+
+    function _cloneFactoryAddress() internal view returns (address) {
+        return _cloneFactory;
+    }
+
+    function _saltForCloneFactory() internal pure returns (bytes32) {
+        return 0x436c6f6e65466163746f72790000000000000000000000000000000000000000;
+    }
+}
+
 abstract contract ImmutableCallAny is ImmutableFactory {
     address private immutable _callAny;
 

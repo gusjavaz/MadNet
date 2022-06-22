@@ -17,6 +17,8 @@ import "contracts/Foundation.sol";
 import "contracts/utils/MagicEthTransfer.sol";
 import "contracts/Proxy.sol";
 
+import "hardhat/console.sol";
+
 /// @custom:salt BridgePool
 /// @custom:deploy-type deployStatic
 contract BridgePool is
@@ -67,6 +69,7 @@ contract BridgePool is
         uint256 ercAmount_,
         uint256 bTokenAmount_
     ) public {
+        console.log("deposit");
         require(
             ERC20(_ercTokenContract).transferFrom(msg.sender, address(this), ercAmount_),
             string(

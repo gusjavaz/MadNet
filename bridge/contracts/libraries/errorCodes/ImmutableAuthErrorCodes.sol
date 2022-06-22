@@ -25,4 +25,6 @@ library ImmutableAuthErrorCodes {
     bytes32 public constant IMMUTEABLEAUTH_ONLY_BRIDGEPOOL = "2019"; //onlyBridgePool
     bytes32 public constant IMMUTEABLEAUTH_ONLY_BRIDGEPOOLDEPOSITNOTIFIER = "2020"; //onlyBridgePoolDepositNotifier
     bytes32 public constant IMMUTEABLEAUTH_ONLY_CALLANY = "2021"; //onlyCallAny
+    bytes32 public constant IMMUTEABLEAUTH_ONLY_BRIDGEPOOLCLONEFACTORY = "2022";
+    bytes32 public constant IMMUTEABLEAUTH_ONLY_CLONEFACTORY = "2023";
 }

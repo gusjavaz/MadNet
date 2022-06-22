@@ -30,6 +30,7 @@ import {
   ValidatorPoolMock,
   ValidatorStaking,
 } from "../typechain-types";
+import { BridgePoolCloneFactory } from "../typechain-types/BridgePoolCloneFactory";
 import { ValidatorRawData } from "./ethdkg/setup";
 
 export const PLACEHOLDER_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -146,7 +147,7 @@ export const createUsers = async (
   return users;
 };
 
-async function getContractAddressFromDeployedStaticEvent(
+export async function getContractAddressFromDeployedStaticEvent(
   tx: ContractTransaction
 ): Promise<string> {
   const eventSignature = "event DeployedStatic(address contractAddr)";
@@ -162,7 +163,7 @@ export async function getContractAddressFromDeployedProxyEvent(
   return await getContractAddressFromEventLog(tx, eventSignature, eventName);
 }
 
-async function getContractAddressFromDeployedRawEvent(
+export async function getContractAddressFromDeployedRawEvent(
   tx: ContractTransaction
 ): Promise<string> {
   const eventSignature = "event DeployedRaw(address contractAddr)";
@@ -170,7 +171,7 @@ async function getContractAddressFromDeployedRawEvent(
   return await getContractAddressFromEventLog(tx, eventSignature, eventName);
 }
 
-async function getContractAddressFromEventLog(
+export async function getContractAddressFromEventLog(
   tx: ContractTransaction,
   eventSignature: string,
   eventName: string
@@ -566,6 +567,15 @@ export const getFixture = async (
     [1337]
   )) as BridgePoolDepositNotifier;
 
+  //BridgePoolCloneFactory
+  const bridgePoolCloneFactory = (await deployUpgradeableWithFactory(
+    factory,
+    "BridgePoolCloneFactory",
+    "BridgePoolCloneFactory",
+    undefined,
+    [1337]
+  )) as BridgePoolCloneFactory;
+
   const immutableAuthErrorCodesContract = await (
     await (await ethers.getContractFactory("ImmutableAuthErrorCodes")).deploy()
   ).deployed();
@@ -592,6 +602,7 @@ export const getFixture = async (
     snapshots,
     ethdkg,
     bridgePoolFactory,
+    bridgePoolCloneFactory,
     bridgePoolDepositNotifier,
     factory,
     namedSigners,

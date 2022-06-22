@@ -8,6 +8,6 @@ module.exports = {
     deduplicate: true,
     cse: false,
     constantOptimizer: false,
-    yul: false,
+    yul: true,
   },
 };

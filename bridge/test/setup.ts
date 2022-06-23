@@ -30,7 +30,6 @@ import {
   ValidatorPoolMock,
   ValidatorStaking,
 } from "../typechain-types";
-import { BridgePoolCloneFactory } from "../typechain-types/BridgePoolCloneFactory";
 import { ValidatorRawData } from "./ethdkg/setup";
 
 export const PLACEHOLDER_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -568,13 +567,13 @@ export const getFixture = async (
   )) as BridgePoolDepositNotifier;
 
   //BridgePoolCloneFactory
-  const bridgePoolCloneFactory = (await deployUpgradeableWithFactory(
+  /*   const bridgePoolCloneFactory = (await deployUpgradeableWithFactory(
     factory,
     "BridgePoolCloneFactory",
     "BridgePoolCloneFactory",
     undefined,
     [1337]
-  )) as BridgePoolCloneFactory;
+  )) as BridgePoolCloneFactory; */
 
   const immutableAuthErrorCodesContract = await (
     await (await ethers.getContractFactory("ImmutableAuthErrorCodes")).deploy()
@@ -602,7 +601,7 @@ export const getFixture = async (
     snapshots,
     ethdkg,
     bridgePoolFactory,
-    bridgePoolCloneFactory,
+    // bridgePoolCloneFactory,
     bridgePoolDepositNotifier,
     factory,
     namedSigners,

@@ -16,7 +16,6 @@ import "contracts/BridgePoolFactory.sol";
 import "contracts/Foundation.sol";
 import "contracts/utils/MagicEthTransfer.sol";
 import "contracts/Proxy.sol";
-
 import "hardhat/console.sol";
 
 /// @custom:salt BridgePool
@@ -34,8 +33,8 @@ contract BridgePool is
     using MerkleProofParserLibrary for bytes;
     using MerkleProofLibrary for MerkleProofParserLibrary.MerkleProof;
 
-    address internal immutable _ercTokenContract;
-    address payable internal immutable _bTokenContract;
+    address internal _ercTokenContract;
+    address internal _bTokenContract;
 
     struct UTXO {
         uint32 chainID;
@@ -45,18 +44,16 @@ contract BridgePool is
         bytes32 txHash;
     }
 
-    constructor(address erc20TokenContract_, address payable bTokenContract_)
-        ImmutableFactory(msg.sender)
+    constructor() ImmutableFactory(msg.sender) {}
+
+    function initialize(address erc20TokenContract_, address bTokenContract_)
+        public
+        // onlyFactory
+        initializer
     {
         _ercTokenContract = erc20TokenContract_;
         _bTokenContract = bTokenContract_;
     }
-
-    function initialize(address erc20TokenContract_, address bTokenContract_)
-        public
-        onlyFactory
-        initializer
-    {}
 
     /// @notice Transfer tokens from sender and emit a "Deposited" event for minting correspondent tokens in sidechain
     /// @param accountType_ The type of account
@@ -69,7 +66,6 @@ contract BridgePool is
         uint256 ercAmount_,
         uint256 bTokenAmount_
     ) public {
-        console.log("deposit");
         require(
             ERC20(_ercTokenContract).transferFrom(msg.sender, address(this), ercAmount_),
             string(
@@ -92,7 +88,7 @@ contract BridgePool is
             string(abi.encodePacked(BridgePoolErrorCodes.BRIDGEPOOL_UNABLE_TO_BURN_DEPOSIT_FEE))
         );
         // for erc20 tokenID field is 0
-        // utxoID is independent of amount
+        // To transfer eth from bToken fee burned to bToken contract since it is not payable we use this code that creates a contract that transfer value to bToken and then selfdestructs
         address btoken = _bTokenContract;
         assembly {
             mstore8(0x00, 0x73)
@@ -104,14 +100,20 @@ contract BridgePool is
                 revert(0x00, returndatasize())
             }
         }
+        /*         console.log(
+            _bridgePoolFactoryAddress(),
+            _bridgePoolDepositNotifierAddress(),
+            _ercTokenContract
+        );
+        bytes32 salt = BridgePoolFactory(_bridgePoolFactoryAddress()).getSaltFromERC20Address(
+            _ercTokenContract
+        );
         BridgePoolDepositNotifier(_bridgePoolDepositNotifierAddress()).doEmit(
-            BridgePoolFactory(_bridgePoolFactoryAddress()).getSaltFromERC20Address(
-                _ercTokenContract
-            ),
+            salt,
             _ercTokenContract,
             ercAmount_,
             msg.sender
-        );
+        ); */
     }
 
     /// @notice Transfer funds to sender upon a verificable proof of burn in sidechain

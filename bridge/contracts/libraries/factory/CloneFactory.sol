@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: MIT-open-group
 pragma solidity ^0.8.11;
-import "contracts/AliceNetFactory.sol";
-import "contracts/libraries/factory/AliceNetFactoryBase.sol";
-import "contracts/BridgePool.sol";
-import "contracts/Proxy.sol";
-import "contracts/utils/ImmutableAuth.sol";
+import "hardhat/console.sol";
 
-/// @custom:salt CloneFactory
-/// @custom:deploy-type deployUpgradeable
 contract CloneFactory {
     function createClone(address target) internal returns (address result) {
         bytes20 targetBytes = bytes20(target);

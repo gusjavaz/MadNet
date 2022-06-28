@@ -3,6 +3,7 @@ pragma solidity ^0.8.11;
 import "contracts/utils/DeterministicAddress.sol";
 import "contracts/Proxy.sol";
 import "contracts/libraries/factory/AliceNetFactoryBase.sol";
+import "hardhat/console.sol";
 
 /// @custom:salt AliceNetFactory
 contract AliceNetFactory is AliceNetFactoryBase {

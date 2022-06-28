@@ -557,6 +557,24 @@ export const getFixture = async (
     [1337]
   )) as BridgePoolFactory;
 
+  /*   // BridgePoolFactory
+  const bridgePool1 = (await deployStaticWithFactory(
+    factory,
+    "BridgePool",
+    "BridgePool",
+    undefined,
+    [1337, 1]
+  )) as BridgePool;
+
+  // BridgePoolFactory
+  const bridgePool2 = (await deployStaticWithFactory(
+    factory,
+    "BridgePool",
+    "BridgePool",
+    undefined,
+    [1337, 2]
+  )) as BridgePool; */
+
   //BridgePoolDepositNotifier
   const bridgePoolDepositNotifier = (await deployUpgradeableWithFactory(
     factory,

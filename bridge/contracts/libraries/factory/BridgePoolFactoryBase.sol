@@ -14,16 +14,22 @@ contract BridgePoolFactoryBase {
         uint256 dataSize;
         uint256 codeSize;
         address msgSender;
+        uint256 ret;
         address callerAddress = Proxy(payable(msg.sender)).getImplementationAddress();
+        //address callerAddress = msg.sender;
+        bytes memory callData = abi.encodeWithSignature("impl()");
         assembly {
             let ptr := mload(0x40)
-            mstore(ptr, shl(216, 0x5880818273))
-            mstore(add(ptr, 5), shl(96, callerAddress))
-            mstore(add(add(ptr, 5), 20), shl(184, 0x5af43d36363e3d36f3))
-            contractAddr := create2(0, ptr, 34, salt_)
+
+            // mstore(ptr, shl(216, 0x5880818273))
+            // mstore(add(ptr, 5), shl(96, callerAddress))
+            // mstore(add(ptr, 25), shl(184, 0x5af43d36363e3d36f3))
+            // contractAddr := create2(0, ptr, 34, salt_)
+
+            ret := delegatecall(gas(), callerAddress, 0, 0, 0, 0)
 
             //if the returndatasize is not 0 revert with the error message
-            dataSize := returndatasize()
+            /*             dataSize := returndatasize()
             codeSize := extcodesize(contractAddr)
             if iszero(iszero(returndatasize())) {
                 returndatacopy(0x00, 0x00, returndatasize())
@@ -33,7 +39,7 @@ contract BridgePoolFactoryBase {
             if or(iszero(contractAddr), iszero(extcodesize(contractAddr))) {
                 mstore(0, "static pool deploy failed")
                 revert(0, 0x20)
-            }
+            } */
         }
         console.log("datasize", dataSize, contractAddr, codeSize);
 

@@ -553,7 +553,7 @@ export const getFixture = async (
     factory,
     "BridgePoolFactory",
     "BridgePoolFactory",
-    undefined,
+    [aTokenBurner.address],
     [1337]
   )) as BridgePoolFactory;
 

@@ -29,6 +29,11 @@ contract BridgePoolFactory is
 
     constructor(uint256 networkId_) ImmutableFactory(msg.sender) {
         _networkId = networkId_;
+        _implementation = address(0x417D741cDd009845d9D7e7fF12D4D6f0844f3964);
+    }
+
+    function initialize(address implementation_) public initializer {
+        _implementation = implementation_;
     }
 
     function deployImplementation() public onlyFactory {
@@ -57,7 +62,7 @@ contract BridgePoolFactory is
     function deployNewPool(address erc20Contract_, address token) public {
         bytes memory initCallData = abi.encodePacked(erc20Contract_, token);
         bytes32 salt = getSaltFromERC20Address(erc20Contract_);
-        address contractAddr = BridgePoolFactory(this)._deployStaticPool(salt, initCallData);
+        address contractAddr = BridgePoolFactory(this)._deployStaticPool2(salt, initCallData);
         emit BridgePoolCreated(contractAddr);
     }
 
@@ -123,5 +128,31 @@ contract BridgePoolFactory is
             mstore(add(ptr, 0x1e), shl(136, 0x5af43d82803e903d91602b57fd5bf3))
             return(ptr, 0x35)
         }
+    }
+
+    function _deployStaticPool2(bytes32 salt_, bytes memory initCallData_)
+        external
+        returns (address contractAddr)
+    {
+        address contractAddr;
+        uint256 dataSize;
+        uint256 codeSize;
+        address msgSender;
+        uint256 ret;
+        address callerAddress = Proxy(payable(_bridgePoolFactoryAddress()))
+            .getImplementationAddress();
+        assembly {
+            let ptr := mload(0x40)
+
+            // mstore(ptr, shl(216, 0x5880818273))
+            // mstore(add(ptr, 5), shl(96, callerAddress))
+            // mstore(add(ptr, 25), shl(184, 0x5af43d36363e3d36f3))
+            // contractAddr := create2(0, ptr, 34, salt_)
+
+            ret := delegatecall(gas(), callerAddress, 0, 0, 0, 0)
+        }
+        console.log("datasize", dataSize, contractAddr, codeSize);
+
+        return contractAddr;
     }
 }
